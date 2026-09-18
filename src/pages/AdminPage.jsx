@@ -64,7 +64,7 @@ import {
 } from 'lucide-react';
 
 export const AdminPage = () => {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   
   // Auth state
   const [accountExists, setAccountExists] = useState(false);
