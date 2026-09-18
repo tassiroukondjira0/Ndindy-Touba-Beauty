@@ -109,6 +109,39 @@ export const cloudAddOrder = async (orderData) => {
   }
 };
 
+export const cloudDeleteReservation = async (id) => {
+  if (!isFirebaseConfigured() || !db) return false;
+  try {
+    await deleteDoc(doc(db, 'reservations', id));
+    return true;
+  } catch (err) {
+    console.error(`Error deleting reservation ${id} from cloud:`, err);
+    return false;
+  }
+};
+
+export const cloudDeleteOrder = async (id) => {
+  if (!isFirebaseConfigured() || !db) return false;
+  try {
+    await deleteDoc(doc(db, 'orders', id));
+    return true;
+  } catch (err) {
+    console.error(`Error deleting order ${id} from cloud:`, err);
+    return false;
+  }
+};
+
+export const cloudDeleteNotification = async (id) => {
+  if (!isFirebaseConfigured() || !db) return false;
+  try {
+    await deleteDoc(doc(db, 'notifications', id));
+    return true;
+  } catch (err) {
+    console.error(`Error deleting notification ${id} from cloud:`, err);
+    return false;
+  }
+};
+
 export const cloudUpdateOrderStatus = async (id, status) => {
   if (!isFirebaseConfigured() || !db) return null;
   try {

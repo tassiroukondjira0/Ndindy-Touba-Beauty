@@ -20,6 +20,10 @@ import {
   dbSaveProduct, 
   dbDeleteProduct, 
   dbUpdateStock, 
+  dbUpdatePrice,
+  dbGetBraids, 
+  dbSaveBraid, 
+  dbDeleteBraid,
   dbGetReservations, 
   dbUpdateReservationStatus, 
   dbGetOrders, 
@@ -44,31 +48,89 @@ import {
   checkAndSendAutomatedReminders,
   isReservationWithin24h,
   isOrderUncollectedOver48h,
-  hasReminderBeenSent
+  hasReminderBeenSent,
+  getNotifText
 } from '../services/notifications';
-import { 
-  Lock, 
-  User, 
-  Mail, 
-  Phone, 
-  Key, 
-  ShieldCheck, 
-  Calendar, 
-  ShoppingBag, 
-  Package, 
-  Plus, 
-  Trash2, 
-  CheckCircle2, 
-  XCircle, 
-  DollarSign, 
+import {
+  Lock,
+  User,
+  Mail,
+  Phone,
+  Key,
+  ShieldCheck,
+  Calendar,
+  ShoppingBag,
+  Package,
+  Plus,
+  Trash2,
+  CheckCircle2,
+  XCircle,
+  DollarSign,
   AlertTriangle,
   LogOut,
   Bell,
-  CheckCheck
+  Check,
+  CheckCheck,
+  Pencil,
+  Edit
 } from 'lucide-react';
 
+// Inline price editor used in the admin dashboard for products, perfumes and braids.
+const PriceEditor = ({ price, onSave }) => {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(String(price));
+
+  useEffect(() => { setVal(String(price)); }, [price]);
+
+  const commit = () => {
+    const num = parseFloat(val);
+    if (isNaN(num) || num < 0) { setVal(String(price)); setEditing(false); return; }
+    onSave(num);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span style={{ fontWeight: 800, color: 'var(--gold-primary)' }}>$</span>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          value={val}
+          onChange={e => setVal(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false); }}
+          autoFocus
+          style={{
+            width: '74px', padding: '4px 8px', borderRadius: '6px',
+            backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid var(--gold-primary)',
+            color: '#fff', fontSize: '0.95rem'
+          }}
+        />
+        <button onClick={commit} style={{ background: 'none', border: 'none', color: '#22c55e', cursor: 'pointer' }} title="OK">
+          <Check size={16} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <span className="font-serif text-gold" style={{ fontSize: '1.2rem', fontWeight: 800 }}>${Number(price || 0).toFixed(2)}</span>
+      <button
+        onClick={() => setEditing(true)}
+        title="Modifier le prix"
+        style={{ background: 'none', border: 'none', color: 'var(--gold-light)', cursor: 'pointer' }}
+      >
+        <Pencil size={14} />
+      </button>
+    </div>
+  );
+};
+
 export const AdminPage = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   
   // Auth state
   const [accountExists, setAccountExists] = useState(false);
@@ -95,6 +157,7 @@ export const AdminPage = () => {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [perfumes, setPerfumes] = useState([]);
+  const [braids, setBraids] = useState([]);
 
   // Notifications State
   const [adminNotifs, setAdminNotifs] = useState([]);
@@ -112,6 +175,19 @@ export const AdminPage = () => {
   const [newStock, setNewStock] = useState('10');
   const [newImage, setNewImage] = useState('/assets/mousuf-perfume.jpg');
   const [newDesc, setNewDesc] = useState('');
+
+  // Braid Management State
+  const [isBraidModalOpen, setIsBraidModalOpen] = useState(false);
+  const [editingBraidId, setEditingBraidId] = useState(null);
+  const [braidForm, setBraidForm] = useState({
+    title_fr: '', title_en: '', category: 'knotless', price: '', duration: '',
+    image: '/assets/', description_fr: '', description_en: '', featured: false
+  });
+
+  const setBraidField = (field, value) => {
+    setBraidForm(prev => ({ ...prev, [field]: value }));
+  };
+
   const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   const checkAuthStatus = async () => {
@@ -154,6 +230,7 @@ export const AdminPage = () => {
     setOrders(dbGetOrders());
     setProducts(dbGetProducts());
     setPerfumes(dbGetPerfumes());
+    setBraids(dbGetBraids());
 
     const freshNotifs = getAdminNotifications();
 
@@ -168,7 +245,7 @@ export const AdminPage = () => {
       if (brandNew.length > 0) {
         playNotificationChime();
         brandNew.forEach(n => {
-          showBrowserNotification(n.title, { body: n.message, tag: n.id });
+          showBrowserNotification(getNotifText(n, 'title', language), { body: getNotifText(n, 'message', language), tag: n.id });
         });
         knownNotifIdsRef.current = new Set(freshNotifs.map(n => n.id));
       }
@@ -364,6 +441,60 @@ export const AdminPage = () => {
     setNewTitle('');
     setNewPrice('');
     setNewDesc('');
+  };
+
+  const handlePriceSave = (id, newPrice, type) => {
+    if (type === 'perfume') {
+      setPerfumes(dbUpdatePrice(id, newPrice, 'perfume'));
+    } else {
+      setProducts(dbUpdatePrice(id, newPrice, 'product'));
+    }
+  };
+
+  const handleBraidPriceSave = (id, newPrice) => {
+    const braid = braids.find(b => b.id === id);
+    if (!braid) return;
+    const updated = dbSaveBraid({ ...braid, price: newPrice });
+    setBraids(braids.map(b => (b.id === id ? updated : b)));
+  };
+
+  const handleAddBraid = (e) => {
+    e.preventDefault();
+    const braid = {
+      id: 'braid-' + Date.now(),
+      title_fr: braidForm.title_fr,
+      title_en: braidForm.title_en,
+      category: braidForm.category,
+      price: parseFloat(braidForm.price) || 0,
+      duration: braidForm.duration,
+      image: braidForm.image,
+      description_fr: braidForm.description_fr,
+      description_en: braidForm.description_en,
+      featured: braidForm.featured
+    };
+    const saved = dbSaveBraid(braid);
+    setBraids([saved, ...braids]);
+    setIsBraidModalOpen(false);
+    setBraidForm({
+      title_fr: '', title_en: '', category: 'knotless', price: '', duration: '',
+      image: '/assets/', description_fr: '', description_en: '', featured: false
+    });
+  };
+
+  const handleEditBraid = (e) => {
+    e.preventDefault();
+    if (!editingBraidId) return;
+    const updated = dbSaveBraid({ id: editingBraidId, ...braidForm, price: parseFloat(braidForm.price) || 0 });
+    setBraids(braids.map(b => (b.id === editingBraidId ? updated : b)));
+    setIsBraidModalOpen(false);
+    setEditingBraidId(null);
+  };
+
+  const handleDeleteBraid = (id) => {
+    if (window.confirm(t('admin_confirm_delete_braid'))) {
+      dbDeleteBraid(id);
+      setBraids(braids.filter(b => b.id !== id));
+    }
   };
 
   const pwdValidation = validatePassword(regPassword, {
@@ -658,8 +789,8 @@ export const AdminPage = () => {
                             fontSize: '0.85rem'
                           }}
                         >
-                          <div style={{ fontWeight: 700, color: '#fff', marginBottom: '2px' }}>{n.title}</div>
-                          <div style={{ color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: '6px' }}>{n.message}</div>
+                          <div style={{ fontWeight: 700, color: '#fff', marginBottom: '2px' }}>{getNotifText(n, 'title', language)}</div>
+                          <div style={{ color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: '6px' }}>{getNotifText(n, 'message', language)}</div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--gold-light)' }}>
                             ⏰ {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
@@ -742,6 +873,19 @@ export const AdminPage = () => {
             }}
           >
             📦 {t('admin_tab_short_products')} ({allProductsList.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('braids')}
+            style={{
+              padding: '10px 24px',
+              borderRadius: '20px',
+              fontWeight: 700,
+              backgroundColor: activeTab === 'braids' ? 'var(--gold-primary)' : 'rgba(255,255,255,0.04)',
+              color: activeTab === 'braids' ? '#000' : 'var(--text-main)',
+              border: activeTab === 'braids' ? 'none' : '1px solid rgba(212,175,55,0.2)'
+            }}
+          >
+            💇 {t('admin_tab_short_braids')} ({braids.length})
           </button>
           <button
             onClick={() => setActiveTab('orders')}
@@ -848,7 +992,11 @@ export const AdminPage = () => {
                     </div>
 
                     <h4 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '6px', color: '#fff' }}>{name}</h4>
-                    <div className="font-serif text-gold" style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '14px' }}>${item.price}</div>
+                    <PriceEditor
+                      price={Number(item.price)}
+                      onSave={(p) => handlePriceSave(item.id, p, item.itemType)}
+                    />
+                    <div style={{ marginTop: '4px', marginBottom: '14px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('admin_edit_price')}</div>
 
                     <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(212,175,55,0.15)', paddingTop: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -869,7 +1017,70 @@ export const AdminPage = () => {
           </div>
         )}
 
-        {/* TAB 3: ORDERS */}
+        {/* TAB 3: BRAIDS */}
+        {activeTab === 'braids' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 className="font-serif text-gold" style={{ fontSize: '1.5rem' }}>{t('admin_braids_title')}</h3>
+              <button
+                onClick={() => { setEditingBraidId(null); setBraidForm({ title_fr: '', title_en: '', category: 'knotless', price: '', duration: '', image: '/assets/', description_fr: '', description_en: '', featured: false }); setIsBraidModalOpen(true); }}
+                className="bg-gold-gradient"
+                style={{ padding: '10px 20px', borderRadius: '30px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}
+              >
+                <Plus size={16} />
+                <span>{t('admin_add_braid')}</span>
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
+              {braids.map(b => {
+                const name = language === 'en' ? b.title_en : b.title_fr;
+                return (
+                  <div key={b.id} className="glass-card" style={{ padding: '18px', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ height: '160px', borderRadius: '8px', overflow: 'hidden', marginBottom: '14px', position: 'relative' }}>
+                      <img src={b.image} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {b.featured && (
+                        <span style={{ position: 'absolute', top: '10px', right: '10px', backgroundColor: 'var(--gold-primary)', color: '#000', padding: '3px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 800 }}>
+                          ★ {t('admin_modal_featured')}
+                        </span>
+                      )}
+                    </div>
+
+                    <h4 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '4px', color: '#fff' }}>{name}</h4>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                      {b.category} · ⏱ {b.duration}
+                    </div>
+
+                    <PriceEditor
+                      price={Number(b.price)}
+                      onSave={(p) => handleBraidPriceSave(b.id, p)}
+                    />
+                    <div style={{ marginTop: '4px', marginBottom: '14px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('admin_edit_price')}</div>
+
+                    <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(212,175,55,0.15)', paddingTop: '12px' }}>
+                      <button
+                        onClick={() => { setEditingBraidId(b.id); setBraidForm({ title_fr: b.title_fr || '', title_en: b.title_en || '', category: b.category || 'knotless', price: String(b.price ?? ''), duration: b.duration || '', image: b.image || '/assets/', description_fr: b.description_fr || '', description_en: b.description_en || '', featured: !!b.featured }); setIsBraidModalOpen(true); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--gold-light)', fontSize: '0.85rem', fontWeight: 600 }}
+                      >
+                        <Edit size={15} />
+                        <span>{t('admin_edit_braid')}</span>
+                      </button>
+                      <button onClick={() => handleDeleteBraid(b.id)} style={{ color: '#ef4444', backgroundColor: 'transparent' }}>
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {braids.length === 0 && (
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--text-muted)', padding: '40px 0' }}>{t('admin_braids_empty')}</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: ORDERS */}
         {activeTab === 'orders' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {orders.map(ord => {
@@ -1001,6 +1212,76 @@ export const AdminPage = () => {
 
                 <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                   <button type="button" onClick={() => setIsAddModalOpen(false)} style={{ flex: 1, padding: '10px', borderRadius: '20px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#fff' }}>{t('admin_modal_cancel')}</button>
+                  <button type="submit" className="bg-gold-gradient" style={{ flex: 1, padding: '10px', borderRadius: '20px' }}>{t('admin_modal_save')}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      {isBraidModalOpen && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
+            <div className="glass-card" style={{ maxWidth: '520px', width: '100%', padding: '28px' }}>
+              <h3 className="font-serif text-gold" style={{ fontSize: '1.6rem', marginBottom: '20px' }}>
+                {editingBraidId ? t('admin_modal_edit_title_braid') : t('admin_modal_title_braid')}
+              </h3>
+              <form onSubmit={editingBraidId ? handleEditBraid : handleAddBraid} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_name_fr')}</label>
+                    <input type="text" value={braidForm.title_fr} onChange={e => setBraidField('title_fr', e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_name_en')}</label>
+                    <input type="text" value={braidForm.title_en} onChange={e => setBraidField('title_en', e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_cat')}</label>
+                    <select value={braidForm.category} onChange={e => setBraidField('category', e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: '#141219', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }}>
+                      <option value="knotless">Knotless</option>
+                      <option value="box">Box Braids</option>
+                      <option value="twists">Twists</option>
+                      <option value="cornrows">Cornrows</option>
+                      <option value="locs">Locs</option>
+                      <option value="classic">Classic</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_price')}</label>
+                      <input type="number" step="0.01" min="0" value={braidForm.price} onChange={e => setBraidField('price', e.target.value)} required placeholder="250.00" style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_duration')}</label>
+                      <input type="text" value={braidForm.duration} onChange={e => setBraidField('duration', e.target.value)} placeholder="3h 30min" style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_image')}</label>
+                  <input type="text" value={braidForm.image} onChange={e => setBraidField('image', e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_desc_fr')}</label>
+                  <textarea value={braidForm.description_fr} onChange={e => setBraidField('description_fr', e.target.value)} rows={2} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_desc_en')}</label>
+                  <textarea value={braidForm.description_en} onChange={e => setBraidField('description_en', e.target.value)} rows={2} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+                </div>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={!!braidForm.featured} onChange={e => setBraidField('featured', e.target.checked)} style={{ accentColor: 'var(--gold-primary)' }} />
+                  {t('admin_modal_featured')}
+                </label>
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                  <button type="button" onClick={() => { setIsBraidModalOpen(false); setEditingBraidId(null); }} style={{ flex: 1, padding: '10px', borderRadius: '20px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#fff' }}>{t('admin_modal_cancel')}</button>
                   <button type="submit" className="bg-gold-gradient" style={{ flex: 1, padding: '10px', borderRadius: '20px' }}>{t('admin_modal_save')}</button>
                 </div>
               </form>

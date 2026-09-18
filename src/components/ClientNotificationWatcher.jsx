@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLanguage } from '../context/LanguageContext';
 import {
   consumeNewNotificationsForMyReferences,
   requestNotificationPermission,
@@ -6,7 +7,8 @@ import {
   playNotificationChime,
   getMyTrackedReferences,
   checkAndSendAutomatedReminders,
-  mergeCloudNotifications
+  mergeCloudNotifications,
+  getNotifText
 } from '../services/notifications';
 import { isFirebaseConfigured, subscribeToCloudNotifications } from '../services/firebase';
 import { CheckCircle2, XCircle, Bell, X, Clock, ShoppingBag, Calendar } from 'lucide-react';
@@ -16,8 +18,12 @@ import { CheckCircle2, XCircle, Bell, X, Clock, ShoppingBag, Calendar } from 'lu
 // placed on this device, and alerts them automatically — both with a real browser push
 // notification (if permission was granted) and an in-app toast.
 export const ClientNotificationWatcher = () => {
+  const { language } = useLanguage();
   const [toasts, setToasts] = useState([]);
   const hasAskedPermissionRef = useRef(false);
+  const languageRef = useRef(language);
+
+  useEffect(() => { languageRef.current = language; }, [language]);
 
   const checkForUpdates = () => {
     // Run automated reminders check (24h booking reminder & 48h order pickup reminder)
@@ -36,9 +42,10 @@ export const ClientNotificationWatcher = () => {
     const fresh = consumeNewNotificationsForMyReferences();
     if (fresh.length === 0) return;
 
+    const lang = languageRef.current;
     playNotificationChime();
     fresh.forEach(n => {
-      showBrowserNotification(n.title, { body: n.message, tag: n.id });
+      showBrowserNotification(getNotifText(n, 'title', lang), { body: getNotifText(n, 'message', lang), tag: n.id });
     });
     setToasts(prev => [...fresh.map(n => ({ ...n, _toastId: n.id })), ...prev].slice(0, 4));
   };
@@ -169,10 +176,10 @@ export const ClientNotificationWatcher = () => {
               </div>
               <div style={{ paddingRight: '14px' }}>
                 <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#fff', marginBottom: '4px' }}>
-                  {toast.title}
+                  {getNotifText(toast, 'title', language)}
                 </div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                  {toast.message}
+                  {getNotifText(toast, 'message', language)}
                 </div>
               </div>
             </div>

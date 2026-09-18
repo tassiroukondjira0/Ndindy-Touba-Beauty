@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import { braidsData } from '../data/braidsData';
+import { dbGetBraids } from '../services/db';
 import { Clock, Calendar, Check, Sparkles, Filter } from 'lucide-react';
 
 export const BraidsCatalog = ({ onSelectBraidForBooking }) => {
   const { language, t } = useLanguage();
+  const [braids, setBraids] = useState(() => dbGetBraids());
   const [activeCategory, setActiveCategory] = useState('all');
+
+  useEffect(() => {
+    const refresh = () => setBraids(dbGetBraids());
+    window.addEventListener('storage', refresh);
+    return () => window.removeEventListener('storage', refresh);
+  }, []);
 
   const categories = [
     { key: 'all', label: t('cat_all') },
@@ -17,8 +24,8 @@ export const BraidsCatalog = ({ onSelectBraidForBooking }) => {
   ];
 
   const filteredBraids = activeCategory === 'all'
-    ? braidsData
-    : braidsData.filter(b => b.category === activeCategory);
+    ? braids
+    : braids.filter(b => b.category === activeCategory);
 
   return (
     <section id="braids" style={{ padding: '90px 0' }}>

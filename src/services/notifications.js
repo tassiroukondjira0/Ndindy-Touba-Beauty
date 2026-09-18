@@ -20,58 +20,48 @@ export const getAppLanguage = () => {
 // Small bilingual text helper for notifications generated outside React.
 export const biText = (fr, en) => (getAppLanguage() === 'en' ? en : fr);
 
-const initialAdminNotifs = [
-  {
-    id: 'notif-101',
-    type: 'reservation',
-    title: biText('Nouvelle Réservation de Tresses', 'New Braiding Booking'),
-    message: biText(
-      'Awa Diallo a réservé un "Flat Twists Bun" pour le 2026-09-16 à 10:00 AM.',
-      'Awa Diallo booked "Flat Twists Bun" for 2026-09-16 at 10:00 AM.'
-    ),
-    referenceId: 'TN-940218',
-    read: false,
-    createdAt: new Date(Date.now() - 3600000).toISOString()
-  },
-  {
-    id: 'notif-102',
-    type: 'order',
-    title: biText('Nouvelle Commande de Produits', 'New Product Order'),
-    message: biText(
-      'Fatou Sow a passé une commande de 95.00$ (Mousuf + Oud Mood).',
-      'Fatou Sow placed an order of $95.00 (Mousuf + Oud Mood).'
-    ),
-    referenceId: 'CMD-10492',
-    read: false,
-    createdAt: new Date(Date.now() - 7200000).toISOString()
-  }
-];
+// Returns the notification text (title or message) in the active UI language
+// when a bilingual version was stored, otherwise falls back to the plain text.
+export const getNotifText = (notif, field, lang) => {
+  if (!notif) return '';
+  const i18n = notif[`${field}_i18n`];
+  if (i18n && i18n[lang]) return i18n[lang];
+  return notif[field] || '';
+};
 
-const initialClientNotifs = [
-  {
-    id: 'cnotif-1',
-    referenceId: 'TN-940218',
-    recipientPhone: '443-555-0192',
-    recipientEmail: 'awa.diallo@gmail.com',
-    type: 'reservation_validated',
-    title: biText('Réservation Confirmée !', 'Booking Confirmed!'),
-    message: biText(
-      'Votre rendez-vous pour "Flat Twists Bun" le 2026-09-16 à 10:00 AM a été validé avec succès par le salon TOUBA NDINDY !',
-      'Your appointment for "Flat Twists Bun" on 2026-09-16 at 10:00 AM has been successfully confirmed by TOUBA NDINDY salon!'
-    ),
-    createdAt: new Date().toISOString()
-  }
-];
+const LEGACY_DEMO_PURGED_FLAG = 'touba_ndindy_legacy_demo_purged';
+
+// IDs of the demo notifications that were seeded in older versions of the app.
+// Removed permanently so every notification comes from a real site interaction.
+const LEGACY_DEMO_NOTIF_IDS = ['notif-101', 'notif-102', 'cnotif-1'];
 
 export const initNotifications = () => {
   if (!localStorage.getItem(STORAGE_KEYS.ADMIN_NOTIFS)) {
-    localStorage.setItem(STORAGE_KEYS.ADMIN_NOTIFS, JSON.stringify(initialAdminNotifs));
+    localStorage.setItem(STORAGE_KEYS.ADMIN_NOTIFS, JSON.stringify([]));
   }
   if (!localStorage.getItem(STORAGE_KEYS.CLIENT_NOTIFS)) {
-    localStorage.setItem(STORAGE_KEYS.CLIENT_NOTIFS, JSON.stringify(initialClientNotifs));
+    localStorage.setItem(STORAGE_KEYS.CLIENT_NOTIFS, JSON.stringify([]));
   }
   if (!localStorage.getItem(STORAGE_KEYS.SENT_REMINDERS)) {
     localStorage.setItem(STORAGE_KEYS.SENT_REMINDERS, JSON.stringify({}));
+  }
+
+  // One-time cleanup: strip legacy demo notifications from browsers that still
+  // have them in localStorage (so the site starts clean everywhere).
+  try {
+    if (localStorage.getItem(LEGACY_DEMO_PURGED_FLAG)) return;
+
+    const adminNotifs = (JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_NOTIFS) || '[]'))
+      .filter(n => !LEGACY_DEMO_NOTIF_IDS.includes(n.id));
+    localStorage.setItem(STORAGE_KEYS.ADMIN_NOTIFS, JSON.stringify(adminNotifs));
+
+    const clientNotifs = (JSON.parse(localStorage.getItem(STORAGE_KEYS.CLIENT_NOTIFS) || '[]'))
+      .filter(n => !LEGACY_DEMO_NOTIF_IDS.includes(n.id));
+    localStorage.setItem(STORAGE_KEYS.CLIENT_NOTIFS, JSON.stringify(clientNotifs));
+
+    localStorage.setItem(LEGACY_DEMO_PURGED_FLAG, 'true');
+  } catch {
+    // Best-effort cleanup; never break startup because of it.
   }
 };
 
@@ -86,14 +76,17 @@ export const getUnreadAdminNotifCount = () => {
   return notifs.filter(n => !n.read).length;
 };
 
-export const addAdminNotification = ({ type, title, message, referenceId }) => {
+export const addAdminNotification = ({ type, title, message, titleI18n, messageI18n, referenceId }) => {
   initNotifications();
   const notifs = JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_NOTIFS) || '[]');
+  const lang = getAppLanguage();
   const newNotif = {
     id: 'notif-' + Date.now(),
     type,
-    title,
-    message,
+    title: (titleI18n && titleI18n[lang]) || title || '',
+    message: (messageI18n && messageI18n[lang]) || message || '',
+    ...(titleI18n ? { title_i18n: titleI18n } : {}),
+    ...(messageI18n ? { message_i18n: messageI18n } : {}),
     referenceId,
     read: false,
     createdAt: new Date().toISOString()
@@ -127,18 +120,21 @@ export const getClientNotifications = (searchQuery) => {
   );
 };
 
-export const addClientNotification = ({ id, referenceId, recipientPhone, recipientEmail, type, title, message }) => {
+export const addClientNotification = ({ id, referenceId, recipientPhone, recipientEmail, type, title, message, titleI18n, messageI18n }) => {
   initNotifications();
   const notifs = JSON.parse(localStorage.getItem(STORAGE_KEYS.CLIENT_NOTIFS) || '[]');
   if (id && notifs.some(n => n.id === id)) return notifs.find(n => n.id === id);
+  const lang = getAppLanguage();
   const newNotif = {
     id: id || 'cnotif-' + Date.now(),
     referenceId,
     recipientPhone,
     recipientEmail,
     type,
-    title,
-    message,
+    title: (titleI18n && titleI18n[lang]) || title || '',
+    message: (messageI18n && messageI18n[lang]) || message || '',
+    ...(titleI18n ? { title_i18n: titleI18n } : {}),
+    ...(messageI18n ? { message_i18n: messageI18n } : {}),
     createdAt: new Date().toISOString()
   };
   notifs.unshift(newNotif);
@@ -399,19 +395,29 @@ export const checkAndSendAutomatedReminders = () => {
           recipientEmail: res.clientEmail || '',
           type: 'reservation_reminder_24h',
           title: biText('⏰ Rappel : Rendez-vous dans 24h !', '⏰ Reminder: Appointment within 24h!'),
+          titleI18n: { fr: '⏰ Rappel : Rendez-vous dans 24h !', en: '⏰ Reminder: Appointment within 24h!' },
           message: biText(
             `Bonjour ${res.clientName}, nous vous rappelons votre rendez-vous pour "${res.braidTitle}" prévu le ${res.date} à ${res.time} au salon TOUBA NDINDY (306 North Eutaw Street, Baltimore MD). À très bientôt !`,
             `Hello ${res.clientName}, this is a reminder of your appointment for "${res.braidTitle}" on ${res.date} at ${res.time} at TOUBA NDINDY salon (306 North Eutaw Street, Baltimore MD). See you soon!`
-          )
+          ),
+          messageI18n: {
+            fr: `Bonjour ${res.clientName}, nous vous rappelons votre rendez-vous pour "${res.braidTitle}" prévu le ${res.date} à ${res.time} au salon TOUBA NDINDY (306 North Eutaw Street, Baltimore MD). À très bientôt !`,
+            en: `Hello ${res.clientName}, this is a reminder of your appointment for "${res.braidTitle}" on ${res.date} at ${res.time} at TOUBA NDINDY salon (306 North Eutaw Street, Baltimore MD). See you soon!`
+          }
         });
         // Admin Notification
         addAdminNotification({
           type: 'reservation_reminder_24h',
           title: biText('⏰ Rappel 24h Envoyé au Client', '⏰ 24h Reminder Sent to Client'),
+          titleI18n: { fr: '⏰ Rappel 24h Envoyé au Client', en: '⏰ 24h Reminder Sent to Client' },
           message: biText(
             `Rappel automatique 24h envoyé à ${res.clientName} (${res.clientPhone}) pour "${res.braidTitle}" le ${res.date} à ${res.time}.`,
             `Automated 24h reminder sent to ${res.clientName} (${res.clientPhone}) for "${res.braidTitle}" on ${res.date} at ${res.time}.`
           ),
+          messageI18n: {
+            fr: `Rappel automatique 24h envoyé à ${res.clientName} (${res.clientPhone}) pour "${res.braidTitle}" le ${res.date} à ${res.time}.`,
+            en: `Automated 24h reminder sent to ${res.clientName} (${res.clientPhone}) for "${res.braidTitle}" on ${res.date} at ${res.time}.`
+          },
           referenceId: res.id
         });
         sentReservations.push(res.id);
@@ -433,19 +439,29 @@ export const checkAndSendAutomatedReminders = () => {
           recipientEmail: ord.clientEmail || '',
           type: 'order_pickup_reminder_48h',
           title: biText('🛍️ Rappel : Votre Commande vous attend (+48h)', '🛍️ Reminder: Your order is waiting (+48h)'),
+          titleI18n: { fr: '🛍️ Rappel : Votre Commande vous attend (+48h)', en: '🛍️ Reminder: Your order is waiting (+48h)' },
           message: biText(
             `Bonjour ${ord.clientName}, votre commande (${ord.id}) d'un montant de ${Number(ord.total || 0).toFixed(2)}$ est prête et vous attend au salon TOUBA NDINDY depuis plus de 48h. Merci de passer la récupérer au 306 North Eutaw Street, Baltimore MD (Tél: 443-858-1400).`,
             `Hello ${ord.clientName}, your order (${ord.id}) of $${Number(ord.total || 0).toFixed(2)} has been ready and waiting at TOUBA NDINDY salon for over 48h. Please come pick it up at 306 North Eutaw Street, Baltimore MD (Tel: 443-858-1400).`
-          )
+          ),
+          messageI18n: {
+            fr: `Bonjour ${ord.clientName}, votre commande (${ord.id}) d'un montant de ${Number(ord.total || 0).toFixed(2)}$ est prête et vous attend au salon TOUBA NDINDY depuis plus de 48h. Merci de passer la récupérer au 306 North Eutaw Street, Baltimore MD (Tél: 443-858-1400).`,
+            en: `Hello ${ord.clientName}, your order (${ord.id}) of $${Number(ord.total || 0).toFixed(2)} has been ready and waiting at TOUBA NDINDY salon for over 48h. Please come pick it up at 306 North Eutaw Street, Baltimore MD (Tel: 443-858-1400).`
+          }
         });
         // Admin Notification
         addAdminNotification({
           type: 'order_pickup_reminder_48h',
           title: biText('🛍️ Rappel Récupération 48h Envoyé', '🛍️ 48h Pickup Reminder Sent'),
+          titleI18n: { fr: '🛍️ Rappel Récupération 48h Envoyé', en: '🛍️ 48h Pickup Reminder Sent' },
           message: biText(
             `Rappel de récupération (+48h) envoyé à ${ord.clientName} (${ord.clientPhone}) pour la commande ${ord.id}.`,
             `Pickup reminder (+48h) sent to ${ord.clientName} (${ord.clientPhone}) for order ${ord.id}.`
           ),
+          messageI18n: {
+            fr: `Rappel de récupération (+48h) envoyé à ${ord.clientName} (${ord.clientPhone}) pour la commande ${ord.id}.`,
+            en: `Pickup reminder (+48h) sent to ${ord.clientName} (${ord.clientPhone}) for order ${ord.id}.`
+          },
           referenceId: ord.id
         });
         sentOrders.push(ord.id);
@@ -471,19 +487,29 @@ export const sendManualReservationReminder = (resOrId) => {
     recipientEmail: res.clientEmail || '',
     type: 'reservation_reminder_24h',
     title: biText('⏰ Rappel : Rendez-vous dans 24h !', '⏰ Reminder: Appointment within 24h!'),
+    titleI18n: { fr: '⏰ Rappel : Rendez-vous dans 24h !', en: '⏰ Reminder: Appointment within 24h!' },
     message: biText(
       `Bonjour ${res.clientName}, rappel de votre rendez-vous pour "${res.braidTitle}" prévu le ${res.date} à ${res.time} au salon TOUBA NDINDY (306 North Eutaw Street, Baltimore MD). Contact : 443-858-1400.`,
       `Hello ${res.clientName}, this is a reminder of your appointment for "${res.braidTitle}" on ${res.date} at ${res.time} at TOUBA NDINDY salon (306 North Eutaw Street, Baltimore MD). Contact: 443-858-1400.`
-    )
+    ),
+    messageI18n: {
+      fr: `Bonjour ${res.clientName}, rappel de votre rendez-vous pour "${res.braidTitle}" prévu le ${res.date} à ${res.time} au salon TOUBA NDINDY (306 North Eutaw Street, Baltimore MD). Contact : 443-858-1400.`,
+      en: `Hello ${res.clientName}, this is a reminder of your appointment for "${res.braidTitle}" on ${res.date} at ${res.time} at TOUBA NDINDY salon (306 North Eutaw Street, Baltimore MD). Contact: 443-858-1400.`
+    }
   });
 
   addAdminNotification({
     type: 'reservation_reminder_24h',
     title: biText('⏰ Rappel 24h Manuel Envoyé', '⏰ Manual 24h Reminder Sent'),
+    titleI18n: { fr: '⏰ Rappel 24h Manuel Envoyé', en: '⏰ Manual 24h Reminder Sent' },
     message: biText(
       `Rappel 24h déclenché manuellement pour ${res.clientName} (${res.clientPhone}) - ${res.braidTitle} le ${res.date} à ${res.time}.`,
       `Manual 24h reminder triggered for ${res.clientName} (${res.clientPhone}) - ${res.braidTitle} on ${res.date} at ${res.time}.`
     ),
+    messageI18n: {
+      fr: `Rappel 24h déclenché manuellement pour ${res.clientName} (${res.clientPhone}) - ${res.braidTitle} le ${res.date} à ${res.time}.`,
+      en: `Manual 24h reminder triggered for ${res.clientName} (${res.clientPhone}) - ${res.braidTitle} on ${res.date} at ${res.time}.`
+    },
     referenceId: res.id
   });
 
@@ -505,19 +531,29 @@ export const sendManualOrderPickupReminder = (orderOrId) => {
     recipientEmail: ord.clientEmail || '',
     type: 'order_pickup_reminder_48h',
     title: biText('🛍️ Rappel : Récupération de votre Commande (+48h)', '🛍️ Reminder: Pick up your order (+48h)'),
+    titleI18n: { fr: '🛍️ Rappel : Récupération de votre Commande (+48h)', en: '🛍️ Reminder: Pick up your order (+48h)' },
     message: biText(
       `Bonjour ${ord.clientName}, votre commande (${ord.id}) d'un montant de ${Number(ord.total || 0).toFixed(2)}$ est prête au salon TOUBA NDINDY depuis plus de 48h. N'hésitez pas à venir la récupérer au 306 North Eutaw Street, Baltimore MD (Tél: 443-858-1400).`,
       `Hello ${ord.clientName}, your order (${ord.id}) of $${Number(ord.total || 0).toFixed(2)} has been ready at TOUBA NDINDY salon for over 48h. Feel free to come pick it up at 306 North Eutaw Street, Baltimore MD (Tel: 443-858-1400).`
-    )
+    ),
+    messageI18n: {
+      fr: `Bonjour ${ord.clientName}, votre commande (${ord.id}) d'un montant de ${Number(ord.total || 0).toFixed(2)}$ est prête au salon TOUBA NDINDY depuis plus de 48h. N'hésitez pas à venir la récupérer au 306 North Eutaw Street, Baltimore MD (Tél: 443-858-1400).`,
+      en: `Hello ${ord.clientName}, your order (${ord.id}) of $${Number(ord.total || 0).toFixed(2)} has been ready at TOUBA NDINDY salon for over 48h. Feel free to come pick it up at 306 North Eutaw Street, Baltimore MD (Tel: 443-858-1400).`
+    }
   });
 
   addAdminNotification({
     type: 'order_pickup_reminder_48h',
     title: biText('🛍️ Rappel Récupération 48h Manuel Envoyé', '🛍️ Manual 48h Pickup Reminder Sent'),
+    titleI18n: { fr: '🛍️ Rappel Récupération 48h Manuel Envoyé', en: '🛍️ Manual 48h Pickup Reminder Sent' },
     message: biText(
       `Rappel de récupération (+48h) déclenché manuellement pour ${ord.clientName} (${ord.clientPhone}) - Commande ${ord.id}.`,
       `Manual pickup reminder (+48h) triggered for ${ord.clientName} (${ord.clientPhone}) - Order ${ord.id}.`
     ),
+    messageI18n: {
+      fr: `Rappel de récupération (+48h) déclenché manuellement pour ${ord.clientName} (${ord.clientPhone}) - Commande ${ord.id}.`,
+      en: `Manual pickup reminder (+48h) triggered for ${ord.clientName} (${ord.clientPhone}) - Order ${ord.id}.`
+    },
     referenceId: ord.id
   });
 

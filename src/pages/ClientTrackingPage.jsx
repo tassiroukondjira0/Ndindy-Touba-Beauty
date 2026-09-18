@@ -314,8 +314,8 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
             <HelpCircle size={14} color="var(--gold-primary)" />
             <span>
               {language === 'fr' 
-                ? 'Exemples de recherche : "TN-940218", "CMD-10492", ou votre numéro de téléphone.' 
-                : 'Search examples: "TN-940218", "CMD-10492", or your phone number.'}
+                ? 'Exemples de recherche : "TN-123456", "CMD-12345", ou votre numéro de téléphone.' 
+                : 'Search examples: "TN-123456", "CMD-12345", or your phone number.'}
             </span>
           </div>
         </div>

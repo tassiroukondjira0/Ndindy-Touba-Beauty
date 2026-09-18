@@ -268,7 +268,7 @@ export const ClientAuthModal = () => {
                     type="text"
                     value={name}
                     onChange={e => setName(e.target.value)}
-                    placeholder="Ex: Awa Diallo"
+                    placeholder="Ex: Amina Ndiaye"
                     style={inputStyle}
                   />
                 </div>

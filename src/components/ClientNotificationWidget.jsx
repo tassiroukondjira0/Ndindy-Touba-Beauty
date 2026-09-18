@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import { getClientNotifications } from '../services/notifications';
+import { getClientNotifications, getNotifText } from '../services/notifications';
 import { Bell, Search } from 'lucide-react';
 
 export const ClientNotificationWidget = () => {
@@ -78,14 +78,14 @@ export const ClientNotificationWidget = () => {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ fontWeight: 800, fontSize: '1.05rem', color: '#fff' }}>{notif.title}</span>
+                      <span style={{ fontWeight: 800, fontSize: '1.05rem', color: '#fff' }}>{getNotifText(notif, 'title', language)}</span>
                       <span style={{ fontSize: '0.78rem', color: 'var(--gold-light)' }}>
                         {new Date(notif.createdAt).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US')} à {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
 
                     <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '10px' }}>
-                      {notif.message}
+                      {getNotifText(notif, 'message', language)}
                     </p>
 
                     <div style={{ fontSize: '0.8rem', color: 'var(--gold-primary)', fontWeight: 600 }}>

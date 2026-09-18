@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useClientAuth } from '../context/ClientAuthContext';
-import { braidsData } from '../data/braidsData';
-import { dbAddReservation } from '../services/db';
+import { dbAddReservation, dbGetBraids } from '../services/db';
 import { trackMyReference } from '../services/notifications';
 import { X, CheckCircle2, Sparkles, Printer } from 'lucide-react';
 
@@ -11,7 +10,7 @@ export const BookingModal = ({ isOpen, onClose, preselectedBraid, navigateTo }) 
   const { clientUser, authLoading, authEnabled, requestAuth } = useClientAuth();
 
   const [step, setStep] = useState(1);
-  const [selectedBraid, setSelectedBraid] = useState(braidsData[0]);
+  const [selectedBraid, setSelectedBraid] = useState(() => (preselectedBraid || dbGetBraids()[0] || null));
   const [date, setDate] = useState('');
   const [time, setTime] = useState('10:00 AM');
   const [name, setName] = useState('');
@@ -177,7 +176,7 @@ export const BookingModal = ({ isOpen, onClose, preselectedBraid, navigateTo }) 
                     {t('booking_select_service')}
                   </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '280px', overflowY: 'auto', paddingRight: '6px' }}>
-                    {braidsData.map(braid => {
+                    {dbGetBraids().map(braid => {
                       const title = language === 'fr' ? braid.title_fr : braid.title_en;
                       const isSelected = selectedBraid.id === braid.id;
 
@@ -272,7 +271,7 @@ export const BookingModal = ({ isOpen, onClose, preselectedBraid, navigateTo }) 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '6px', color: 'var(--text-muted)' }}>👤 {t('booking_name_label')}</label>
-                    <input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="Ex: Awa Diallo" style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+                    <input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="Ex: Amina Ndiaye" style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
                   </div>
 
                   <div>

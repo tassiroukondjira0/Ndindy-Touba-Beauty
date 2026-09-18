@@ -9,12 +9,14 @@ import {
   cloudAddOrder, 
   cloudUpdateOrderStatus,
   cloudSearchReservationsAndOrders,
-  cloudSeedProductsIfEmpty,
   cloudSaveProduct,
   cloudDeleteProduct,
   cloudUpdateStock,
   cloudDeductStockForOrder,
-  cloudAddNotification
+  cloudAddNotification,
+  cloudDeleteReservation,
+  cloudDeleteOrder,
+  cloudDeleteNotification
 } from './firebase';
 
 const STORAGE_KEYS = {
@@ -35,51 +37,13 @@ const initialPerfumes = perfumesData.map(p => ({
   stock: p.stock !== undefined ? p.stock : Math.floor(Math.random() * 8) + 5
 }));
 
-const initialReservations = [
-  {
-    id: 'TN-940218',
-    braidId: 'flat-twist-updo',
-    braidTitle: 'Flat Twists Bun & Chignon Protecteur',
-    price: 130,
-    date: '2026-09-16',
-    time: '10:00 AM',
-    clientName: 'Awa Diallo',
-    clientPhone: '443-555-0192',
-    clientEmail: 'awa.diallo@gmail.com',
-    paymentMethod: 'cash',
-    status: 'confirmée',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'TN-582910',
-    braidId: 'knotless-braids-medium',
-    braidTitle: 'Knotless Braids (Moyennes & Longues)',
-    price: 180,
-    date: '2026-09-17',
-    time: '01:00 PM',
-    clientName: 'Jessica Taylor',
-    clientPhone: '443-888-2910',
-    clientEmail: 'jtaylor@yahoo.com',
-    paymentMethod: 'cashapp',
-    status: 'en_attente',
-    createdAt: new Date().toISOString()
-  }
-];
-
-const initialOrders = [
-  {
-    id: 'CMD-10492',
-    clientName: 'Fatou Sow',
-    clientPhone: '443-777-3829',
-    total: 95.00,
-    items: [
-      { id: 'mousuf-eau-de-parfum', name: 'MOUSUF Eau de Parfum', price: 45.00, quantity: 1 },
-      { id: 'oud-mood-lattafa', name: 'OUD MOOD Eau de Parfum', price: 50.00, quantity: 1 }
-    ],
-    status: 'validée',
-    createdAt: new Date().toISOString()
-  }
-];
+// IDs of demo reservations / orders / notifications seeded in older versions of
+// the app. They are purged from localStorage AND from Firestore so the database
+// only contains data created by real site interactions.
+const LEGACY_DEMO_RESERVATION_IDS = ['TN-940218', 'TN-582910'];
+const LEGACY_DEMO_ORDER_IDS = ['CMD-10492'];
+const LEGACY_DEMO_NOTIF_IDS = ['notif-101', 'notif-102', 'cnotif-1'];
+const CLOUD_DEMO_PURGE_FLAG = 'touba_ndindy_cloud_demo_purged';
 
 export const initDB = () => {
   if (!localStorage.getItem(STORAGE_KEYS.PRODUCTS)) {
@@ -92,16 +56,53 @@ export const initDB = () => {
     localStorage.setItem(STORAGE_KEYS.BRAIDS, JSON.stringify(braidsData));
   }
   if (!localStorage.getItem(STORAGE_KEYS.RESERVATIONS)) {
-    localStorage.setItem(STORAGE_KEYS.RESERVATIONS, JSON.stringify(initialReservations));
+    localStorage.setItem(STORAGE_KEYS.RESERVATIONS, JSON.stringify([]));
   }
   if (!localStorage.getItem(STORAGE_KEYS.ORDERS)) {
-    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(initialOrders));
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify([]));
   }
 
-  // Auto seed products & perfumes in Firebase Firestore if configured
-  if (isFirebaseConfigured()) {
-    cloudSeedProductsIfEmpty(initialProducts, initialPerfumes);
-    cloudBackfillExistingData();
+  // One-time local cleanup: strip legacy demo reservations/orders from browsers
+  // that still hold them, then purge the same demo docs from Firestore.
+  cleanupLocalDemoData();
+  purgeCloudDemoData();
+  cloudBackfillExistingData();
+};
+
+// Remove legacy demo interaction records from this browser's localStorage.
+const cleanupLocalDemoData = () => {
+  try {
+    const reservations = (JSON.parse(localStorage.getItem(STORAGE_KEYS.RESERVATIONS) || '[]'))
+      .filter(r => !LEGACY_DEMO_RESERVATION_IDS.includes(r.id));
+    localStorage.setItem(STORAGE_KEYS.RESERVATIONS, JSON.stringify(reservations));
+
+    const orders = (JSON.parse(localStorage.getItem(STORAGE_KEYS.ORDERS) || '[]'))
+      .filter(o => !LEGACY_DEMO_ORDER_IDS.includes(o.id));
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+  } catch {
+    // Best-effort cleanup; never break startup because of it.
+  }
+};
+
+// One-time purge of the legacy demo documents from Firestore so the cloud
+// database also starts clean (idempotent: deleting a missing doc is a no-op).
+const purgeCloudDemoData = () => {
+  try {
+    if (!isFirebaseConfigured()) return;
+    if (localStorage.getItem(CLOUD_DEMO_PURGE_FLAG)) return;
+
+    const run = async () => {
+      await Promise.all([
+        ...LEGACY_DEMO_RESERVATION_IDS.map(id => cloudDeleteReservation(id)),
+        ...LEGACY_DEMO_ORDER_IDS.map(id => cloudDeleteOrder(id)),
+        ...LEGACY_DEMO_NOTIF_IDS.map(id => cloudDeleteNotification(id))
+      ]);
+      localStorage.setItem(CLOUD_DEMO_PURGE_FLAG, 'true');
+    };
+
+    run().catch(() => {});
+  } catch {
+    // Best-effort cleanup; never break startup because of it.
   }
 };
 
@@ -112,6 +113,7 @@ const CLOUD_BACKFILL_FLAG = 'touba_ndindy_cloud_backfill_done';
 // anything that already exists there (setDoc merge, idempotent).
 const cloudBackfillExistingData = () => {
   try {
+    if (!isFirebaseConfigured()) return;
     if (localStorage.getItem(CLOUD_BACKFILL_FLAG)) return;
 
     const run = async () => {
@@ -178,6 +180,51 @@ export const dbDeleteProduct = (id, type) => {
     cloudDeleteProduct(id, type);
   }
 
+  return filtered;
+};
+
+export const dbUpdatePrice = (id, newPrice, type) => {
+  initDB();
+  const key = type === 'perfume' ? STORAGE_KEYS.PERFUMES : STORAGE_KEYS.PRODUCTS;
+  const items = JSON.parse(localStorage.getItem(key) || '[]');
+  const price = Math.max(0, parseFloat(newPrice) || 0);
+  const updated = items.map(i => i.id === id ? { ...i, price } : i);
+  localStorage.setItem(key, JSON.stringify(updated));
+
+  // Sync the new price back to Firestore (merge keeps the rest of the doc)
+  if (isFirebaseConfigured()) {
+    const target = updated.find(i => i.id === id);
+    if (target) cloudSaveProduct(target);
+  }
+
+  return updated;
+};
+
+export const dbGetBraids = () => {
+  initDB();
+  return JSON.parse(localStorage.getItem(STORAGE_KEYS.BRAIDS) || '[]');
+};
+
+export const dbSaveBraid = (braid) => {
+  initDB();
+  const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.BRAIDS) || '[]');
+  const existingIdx = items.findIndex(i => i.id === braid.id);
+  if (existingIdx >= 0) {
+    items[existingIdx] = { ...items[existingIdx], ...braid };
+  } else {
+    items.unshift(braid);
+  }
+  localStorage.setItem(STORAGE_KEYS.BRAIDS, JSON.stringify(items));
+  window.dispatchEvent(new Event('storage'));
+  return items;
+};
+
+export const dbDeleteBraid = (id) => {
+  initDB();
+  const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.BRAIDS) || '[]');
+  const filtered = items.filter(i => i.id !== id);
+  localStorage.setItem(STORAGE_KEYS.BRAIDS, JSON.stringify(filtered));
+  window.dispatchEvent(new Event('storage'));
   return filtered;
 };
 
@@ -272,7 +319,7 @@ export const dbUpdateReservationStatus = (id, status) => {
 
   if (targetRes) {
     const statusTextFr = status === 'confirmée' ? 'VALIDÉE et CONFIRMÉE' : status === 'annulée' ? 'ANNULÉE' : 'MISE À JOUR';
-    const statusTextEn = status === 'confirmée' ? 'VALIDATED and CONFIRMED' : status === 'annulée' ? 'CANCELLED' : 'UPDATED';
+    const statusTextEn = status === 'confirmed' ? 'VALIDATED and CONFIRMED' : status === 'cancelled' ? 'CANCELLED' : 'UPDATED';
     addClientNotification({
       referenceId: targetRes.id,
       recipientPhone: targetRes.clientPhone,
