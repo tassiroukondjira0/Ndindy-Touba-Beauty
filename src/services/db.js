@@ -329,6 +329,15 @@ export const dbUpdateOrderStatus = (id, status) => {
         title: '⚠️ Commande Refusée',
         message: `Bonjour ${targetOrder.clientName}, votre commande (${targetOrder.id}) n'a malheureusement pas pu être validée par le salon TOUBA NDINDY. Contactez-nous au 443-858-1400 pour plus d'informations.`
       });
+    } else if (status === 'récupérée') {
+      addClientNotification({
+        referenceId: targetOrder.id,
+        recipientPhone: targetOrder.clientPhone,
+        recipientEmail: targetOrder.clientEmail || '',
+        type: 'order_collected',
+        title: '✅ Commande Récupérée — Merci !',
+        message: `Bonjour ${targetOrder.clientName}, nous confirmons la récupération de votre commande (${targetOrder.id}). Merci de votre confiance et à très bientôt chez TOUBA NDINDY !`
+      });
     }
 
     if (isFirebaseConfigured()) {

@@ -4,20 +4,23 @@ import {
   requestNotificationPermission,
   showBrowserNotification,
   playNotificationChime,
-  getMyTrackedReferences
+  getMyTrackedReferences,
+  checkAndSendAutomatedReminders
 } from '../services/notifications';
-import { CheckCircle2, XCircle, Bell, X } from 'lucide-react';
+import { CheckCircle2, XCircle, Bell, X, Clock, ShoppingBag, Calendar } from 'lucide-react';
 
 // Mounted once at the app root. Silently watches (via storage events + a short
-// poll) for status updates on any reservation/order the visitor placed on this
-// device, and alerts them automatically — both with a real browser push
-// notification (if permission was granted) and an in-app toast, so they don't
-// have to come back and search for their reference manually.
+// poll) for status updates and 24h/48h reminders on any reservation/order the visitor
+// placed on this device, and alerts them automatically — both with a real browser push
+// notification (if permission was granted) and an in-app toast.
 export const ClientNotificationWatcher = () => {
   const [toasts, setToasts] = useState([]);
   const hasAskedPermissionRef = useRef(false);
 
   const checkForUpdates = () => {
+    // Run automated reminders check (24h booking reminder & 48h order pickup reminder)
+    checkAndSendAutomatedReminders();
+
     const myRefs = getMyTrackedReferences();
     if (myRefs.length === 0) return;
 
@@ -46,9 +49,7 @@ export const ClientNotificationWatcher = () => {
     const handleStorage = () => checkForUpdates();
     window.addEventListener('storage', handleStorage);
 
-    // Same-tab safety net: some updates (e.g. another browser tab on a
-    // different device syncing via localStorage) may not always fire a
-    // 'storage' event immediately, so we also poll gently.
+    // Same-tab safety net: check periodically for reminders & status updates
     const interval = setInterval(checkForUpdates, 8000);
 
     return () => {
@@ -73,21 +74,47 @@ export const ClientNotificationWatcher = () => {
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
-        maxWidth: '380px',
+        maxWidth: '390px',
         width: 'calc(100% - 48px)'
       }}
     >
       {toasts.map(toast => {
         const isRefused = toast.type === 'order_refused';
+        const isResReminder = toast.type === 'reservation_reminder_24h';
+        const isOrderReminder = toast.type === 'order_pickup_reminder_48h';
+
+        let themeColor = '#22c55e';
+        let themeBg = 'rgba(34, 197, 94, 0.15)';
+        let themeBorder = 'rgba(34, 197, 94, 0.4)';
+        let IconComponent = CheckCircle2;
+
+        if (isRefused) {
+          themeColor = '#ef4444';
+          themeBg = 'rgba(239, 68, 68, 0.15)';
+          themeBorder = 'rgba(239, 68, 68, 0.4)';
+          IconComponent = XCircle;
+        } else if (isResReminder) {
+          themeColor = '#facc15';
+          themeBg = 'rgba(250, 204, 21, 0.18)';
+          themeBorder = 'rgba(250, 204, 21, 0.5)';
+          IconComponent = Clock;
+        } else if (isOrderReminder) {
+          themeColor = '#fb923c';
+          themeBg = 'rgba(251, 146, 60, 0.18)';
+          themeBorder = 'rgba(251, 146, 60, 0.5)';
+          IconComponent = ShoppingBag;
+        }
+
         return (
           <div
             key={toast._toastId}
             className="glass-card animate-toast-in"
             style={{
               padding: '18px',
-              border: `1px solid ${isRefused ? 'rgba(239, 68, 68, 0.4)' : 'rgba(34, 197, 94, 0.4)'}`,
-              boxShadow: '0 15px 35px rgba(0,0,0,0.6)',
-              position: 'relative'
+              border: `1px solid ${themeBorder}`,
+              boxShadow: '0 15px 35px rgba(0,0,0,0.7)',
+              position: 'relative',
+              backgroundColor: 'rgba(18, 16, 26, 0.95)'
             }}
           >
             <button
@@ -108,18 +135,19 @@ export const ClientNotificationWatcher = () => {
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
               <div
                 style={{
-                  width: '36px',
-                  height: '36px',
+                  width: '38px',
+                  height: '38px',
                   borderRadius: '50%',
                   flexShrink: 0,
-                  backgroundColor: isRefused ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)',
-                  color: isRefused ? '#ef4444' : '#22c55e',
+                  backgroundColor: themeBg,
+                  color: themeColor,
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  border: `1px solid ${themeBorder}`
                 }}
               >
-                {isRefused ? <XCircle size={20} /> : <CheckCircle2 size={20} />}
+                <IconComponent size={20} />
               </div>
               <div style={{ paddingRight: '14px' }}>
                 <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#fff', marginBottom: '4px' }}>

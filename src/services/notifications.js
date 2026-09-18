@@ -2,7 +2,8 @@ const STORAGE_KEYS = {
   ADMIN_NOTIFS: 'touba_ndindy_admin_notifications',
   CLIENT_NOTIFS: 'touba_ndindy_client_notifications',
   MY_REFS: 'touba_ndindy_my_refs',
-  SEEN_CLIENT_NOTIFS: 'touba_ndindy_seen_client_notifs'
+  SEEN_CLIENT_NOTIFS: 'touba_ndindy_seen_client_notifs',
+  SENT_REMINDERS: 'touba_ndindy_sent_reminders'
 };
 
 const initialAdminNotifs = [
@@ -45,6 +46,9 @@ export const initNotifications = () => {
   }
   if (!localStorage.getItem(STORAGE_KEYS.CLIENT_NOTIFS)) {
     localStorage.setItem(STORAGE_KEYS.CLIENT_NOTIFS, JSON.stringify(initialClientNotifs));
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.SENT_REMINDERS)) {
+    localStorage.setItem(STORAGE_KEYS.SENT_REMINDERS, JSON.stringify({}));
   }
 };
 
@@ -216,6 +220,9 @@ const markClientNotifsSeen = (ids) => {
 // Returns any notifications for references tracked on this device that the
 // client hasn't been alerted about yet, and marks them as seen.
 export const consumeNewNotificationsForMyReferences = () => {
+  // Check for any automated 24h/48h reminders before consuming
+  checkAndSendAutomatedReminders();
+
   const myRefs = getMyTrackedReferences();
   if (myRefs.length === 0) return [];
   const referenceIds = myRefs.map(r => r.referenceId);
@@ -226,4 +233,206 @@ export const consumeNewNotificationsForMyReferences = () => {
     markClientNotifsSeen(unseen.map(n => n.id));
   }
   return unseen;
+};
+
+// --- AUTOMATED & MANUAL REMINDERS (24H RESERVATION & 48H ORDER PICKUP) ---
+
+export const parseReservationDateTime = (dateStr, timeStr) => {
+  if (!dateStr) return null;
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length < 3) return null;
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10);
+    const day = parseInt(parts[2], 10);
+    if (!year || !month || !day) return null;
+
+    let hours = 10;
+    let minutes = 0;
+
+    if (timeStr) {
+      const cleanTime = timeStr.trim().toUpperCase();
+      const match = cleanTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/);
+      if (match) {
+        let h = parseInt(match[1], 10);
+        const m = parseInt(match[2], 10);
+        const meridiem = match[3];
+
+        if (meridiem === 'PM' && h < 12) h += 12;
+        if (meridiem === 'AM' && h === 12) h = 0;
+
+        hours = h;
+        minutes = m;
+      }
+    }
+
+    const dt = new Date(year, month - 1, day, hours, minutes, 0, 0);
+    return isNaN(dt.getTime()) ? null : dt;
+  } catch (e) {
+    return null;
+  }
+};
+
+export const isReservationWithin24h = (res) => {
+  if (!res || res.status === 'annulée') return false;
+  const appointmentDate = parseReservationDateTime(res.date, res.time);
+  if (!appointmentDate) return false;
+
+  const now = Date.now();
+  const appointmentTime = appointmentDate.getTime();
+  const diffHours = (appointmentTime - now) / (1000 * 60 * 60);
+
+  // Within 24 hours before appointment and not expired > 4h ago
+  return diffHours <= 24 && diffHours >= -4;
+};
+
+export const isOrderUncollectedOver48h = (ord) => {
+  if (!ord) return false;
+  // If order was collected, terminated or declined, it is not pending pickup
+  if (['récupérée', 'terminée', 'refusée', 'annulée'].includes(ord.status)) return false;
+
+  const createdDate = ord.createdAt ? new Date(ord.createdAt) : null;
+  if (!createdDate || isNaN(createdDate.getTime())) return false;
+
+  const elapsedHours = (Date.now() - createdDate.getTime()) / (1000 * 60 * 60);
+  return elapsedHours >= 48;
+};
+
+export const getSentReminders = () => {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.SENT_REMINDERS) || '{}');
+  } catch (e) {
+    return {};
+  }
+};
+
+export const markReminderSent = (key) => {
+  const sent = getSentReminders();
+  sent[key] = new Date().toISOString();
+  localStorage.setItem(STORAGE_KEYS.SENT_REMINDERS, JSON.stringify(sent));
+};
+
+export const hasReminderBeenSent = (key) => {
+  const sent = getSentReminders();
+  return Boolean(sent[key]);
+};
+
+export const checkAndSendAutomatedReminders = () => {
+  if (typeof window === 'undefined') return { sentReservations: [], sentOrders: [] };
+
+  const reservations = JSON.parse(localStorage.getItem('touba_ndindy_reservations') || '[]');
+  const orders = JSON.parse(localStorage.getItem('touba_ndindy_orders') || '[]');
+
+  const sentReservations = [];
+  const sentOrders = [];
+
+  // 1. Check Reservations 24h reminder
+  reservations.forEach(res => {
+    if (isReservationWithin24h(res)) {
+      const key = `res_24h_${res.id}`;
+      if (!hasReminderBeenSent(key)) {
+        markReminderSent(key);
+        // Client Notification
+        addClientNotification({
+          referenceId: res.id,
+          recipientPhone: res.clientPhone,
+          recipientEmail: res.clientEmail || '',
+          type: 'reservation_reminder_24h',
+          title: '⏰ Rappel : Rendez-vous dans 24h !',
+          message: `Bonjour ${res.clientName}, nous vous rappelons votre rendez-vous pour "${res.braidTitle}" prévu le ${res.date} à ${res.time} au salon TOUBA NDINDY (306 North Eutaw Street, Baltimore MD). À très bientôt !`
+        });
+        // Admin Notification
+        addAdminNotification({
+          type: 'reservation_reminder_24h',
+          title: '⏰ Rappel 24h Envoyé au Client',
+          message: `Rappel automatique 24h envoyé à ${res.clientName} (${res.clientPhone}) pour "${res.braidTitle}" le ${res.date} à ${res.time}.`,
+          referenceId: res.id
+        });
+        sentReservations.push(res.id);
+      }
+    }
+  });
+
+  // 2. Check Orders 48h uncollected pickup reminder
+  orders.forEach(ord => {
+    if (isOrderUncollectedOver48h(ord)) {
+      const key = `order_48h_${ord.id}`;
+      if (!hasReminderBeenSent(key)) {
+        markReminderSent(key);
+        // Client Notification
+        addClientNotification({
+          referenceId: ord.id,
+          recipientPhone: ord.clientPhone,
+          recipientEmail: ord.clientEmail || '',
+          type: 'order_pickup_reminder_48h',
+          title: '🛍️ Rappel : Votre Commande vous attend (+48h)',
+          message: `Bonjour ${ord.clientName}, votre commande (${ord.id}) d'un montant de ${Number(ord.total || 0).toFixed(2)}$ est prête et vous attend au salon TOUBA NDINDY depuis plus de 48h. Merci de passer la récupérer au 306 North Eutaw Street, Baltimore MD (Tél: 443-858-1400).`
+        });
+        // Admin Notification
+        addAdminNotification({
+          type: 'order_pickup_reminder_48h',
+          title: '🛍️ Rappel Récupération 48h Envoyé',
+          message: `Rappel de récupération (+48h) envoyé à ${ord.clientName} (${ord.clientPhone}) pour la commande ${ord.id}.`,
+          referenceId: ord.id
+        });
+        sentOrders.push(ord.id);
+      }
+    }
+  });
+
+  return { sentReservations, sentOrders };
+};
+
+export const sendManualReservationReminder = (resOrId) => {
+  const reservations = JSON.parse(localStorage.getItem('touba_ndindy_reservations') || '[]');
+  const res = typeof resOrId === 'object' ? resOrId : reservations.find(r => r.id === resOrId);
+  if (!res) return null;
+
+  const key = `res_24h_${res.id}`;
+  markReminderSent(key);
+
+  const notif = addClientNotification({
+    referenceId: res.id,
+    recipientPhone: res.clientPhone,
+    recipientEmail: res.clientEmail || '',
+    type: 'reservation_reminder_24h',
+    title: '⏰ Rappel : Rendez-vous dans 24h !',
+    message: `Bonjour ${res.clientName}, rappel de votre rendez-vous pour "${res.braidTitle}" prévu le ${res.date} à ${res.time} au salon TOUBA NDINDY (306 North Eutaw Street, Baltimore MD). Contact : 443-858-1400.`
+  });
+
+  addAdminNotification({
+    type: 'reservation_reminder_24h',
+    title: '⏰ Rappel 24h Manuel Envoyé',
+    message: `Rappel 24h déclenché manuellement pour ${res.clientName} (${res.clientPhone}) - ${res.braidTitle} le ${res.date} à ${res.time}.`,
+    referenceId: res.id
+  });
+
+  return notif;
+};
+
+export const sendManualOrderPickupReminder = (orderOrId) => {
+  const orders = JSON.parse(localStorage.getItem('touba_ndindy_orders') || '[]');
+  const ord = typeof orderOrId === 'object' ? orderOrId : orders.find(o => o.id === orderOrId);
+  if (!ord) return null;
+
+  const key = `order_48h_${ord.id}`;
+  markReminderSent(key);
+
+  const notif = addClientNotification({
+    referenceId: ord.id,
+    recipientPhone: ord.clientPhone,
+    recipientEmail: ord.clientEmail || '',
+    type: 'order_pickup_reminder_48h',
+    title: '🛍️ Rappel : Récupération de votre Commande (+48h)',
+    message: `Bonjour ${ord.clientName}, votre commande (${ord.id}) d'un montant de ${Number(ord.total || 0).toFixed(2)}$ est prête au salon TOUBA NDINDY depuis plus de 48h. N'hésitez pas à venir la récupérer au 306 North Eutaw Street, Baltimore MD (Tél: 443-858-1400).`
+  });
+
+  addAdminNotification({
+    type: 'order_pickup_reminder_48h',
+    title: '🛍️ Rappel Récupération 48h Manuel Envoyé',
+    message: `Rappel de récupération (+48h) déclenché manuellement pour ${ord.clientName} (${ord.clientPhone}) - Commande ${ord.id}.`,
+    referenceId: ord.id
+  });
+
+  return notif;
 };

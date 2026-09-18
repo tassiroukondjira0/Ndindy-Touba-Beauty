@@ -24,6 +24,11 @@ build
 .env.test.local
 .env.production.local
 
+# Firebase local artifacts (Hosting disabled - site deployed on Vercel)
+.firebase
+firebase-debug.log
+firebase-debug.*.log
+
 # Editor directories & OS files
 .vscode/*
 !.vscode/extensions.json

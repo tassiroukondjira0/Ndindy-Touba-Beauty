@@ -40,7 +40,12 @@ import {
   requestNotificationPermission,
   getNotificationPermission,
   showBrowserNotification,
-  playNotificationChime
+  playNotificationChime,
+  sendManualReservationReminder,
+  sendManualOrderPickupReminder,
+  isReservationWithin24h,
+  isOrderUncollectedOver48h,
+  hasReminderBeenSent
 } from '../services/notifications';
 import { 
   Lock, 
@@ -283,6 +288,21 @@ export const AdminPage = () => {
 
   const handleOrderStatusChange = (id, newStatus) => {
     setOrders(dbUpdateOrderStatus(id, newStatus));
+  };
+
+  const handleSendReservationReminder = (res) => {
+    sendManualReservationReminder(res);
+    loadDashboardData();
+  };
+
+  const handleSendOrderReminder = (ord) => {
+    sendManualOrderPickupReminder(ord);
+    loadDashboardData();
+  };
+
+  const handleMarkOrderCollected = (id) => {
+    setOrders(dbUpdateOrderStatus(id, 'récupérée'));
+    loadDashboardData();
   };
 
   const handleEnableNotifications = async () => {
@@ -738,35 +758,58 @@ export const AdminPage = () => {
         {/* TAB 1: RESERVATIONS */}
         {activeTab === 'reservations' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {reservations.map(res => (
-              <div key={res.id} className="glass-card" style={{ padding: '20px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                    <span className="font-serif text-gold" style={{ fontWeight: 800 }}>{res.id}</span>
-                    <span style={{ fontSize: '0.85rem', padding: '3px 10px', borderRadius: '12px', backgroundColor: res.status === 'confirmée' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(234, 179, 8, 0.15)', color: res.status === 'confirmée' ? '#22c55e' : '#eab308', fontWeight: 700 }}>
-                      {res.status.toUpperCase()}
-                    </span>
+            {reservations.map(res => {
+              const within24h = isReservationWithin24h(res);
+              const reminderSent = hasReminderBeenSent(`res_24h_${res.id}`);
+              const isCancelled = res.status === 'annulée';
+              return (
+                <div key={res.id} className="glass-card" style={{ padding: '20px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                      <span className="font-serif text-gold" style={{ fontWeight: 800 }}>{res.id}</span>
+                      <span style={{ fontSize: '0.85rem', padding: '3px 10px', borderRadius: '12px', backgroundColor: res.status === 'confirmée' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(234, 179, 8, 0.15)', color: res.status === 'confirmée' ? '#22c55e' : '#eab308', fontWeight: 700 }}>
+                        {res.status.toUpperCase()}
+                      </span>
+                      {within24h && (
+                        <span style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '12px', backgroundColor: 'rgba(250, 204, 21, 0.15)', color: '#facc15', fontWeight: 700 }}>
+                          {t('admin_reminder_24h_badge')}
+                        </span>
+                      )}
+                    </div>
+                    <h3 style={{ fontSize: '1.15rem', color: '#fff', marginBottom: '4px' }}>{res.braidTitle} (${res.price})</h3>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      📅 Date: <strong>{res.date} à {res.time}</strong> | Client: <strong>{res.clientName}</strong> ({res.clientPhone}) | Paiement: <strong>{res.paymentMethod.toUpperCase()}</strong>
+                    </div>
                   </div>
-                  <h3 style={{ fontSize: '1.15rem', color: '#fff', marginBottom: '4px' }}>{res.braidTitle} (${res.price})</h3>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    📅 Date: <strong>{res.date} à {res.time}</strong> | Client: <strong>{res.clientName}</strong> ({res.clientPhone}) | Paiement: <strong>{res.paymentMethod.toUpperCase()}</strong>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                    {!isCancelled && (
+                      reminderSent ? (
+                        <span style={{ fontSize: '0.78rem', color: '#22c55e', fontWeight: 700 }}>{t('admin_reminder_sent_badge')}</span>
+                      ) : (
+                        <button onClick={() => handleSendReservationReminder(res)} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(212, 175, 55, 0.15)', color: 'var(--gold-light)', border: '1px solid rgba(212, 175, 55, 0.4)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Bell size={15} />
+                          <span>{t('admin_reminder_24h_btn')}</span>
+                        </button>
+                      )
+                    )}
+
+                    {res.status === 'en_attente' && (
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => handleStatusChange(res.id, 'confirmée')} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.3)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <CheckCircle2 size={15} />
+                          <span>Confirmer</span>
+                        </button>
+                        <button onClick={() => handleStatusChange(res.id, 'annulée')} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <XCircle size={15} />
+                          <span>Annuler</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                {res.status === 'en_attente' && (
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => handleStatusChange(res.id, 'confirmée')} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.3)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <CheckCircle2 size={15} />
-                      <span>Confirmer</span>
-                    </button>
-                    <button onClick={() => handleStatusChange(res.id, 'annulée')} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <XCircle size={15} />
-                      <span>Annuler</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -819,16 +862,23 @@ export const AdminPage = () => {
         {activeTab === 'orders' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {orders.map(ord => {
-              const statusColor = ord.status === 'validée' ? '#22c55e' : ord.status === 'refusée' ? '#ef4444' : '#eab308';
-              const statusBg = ord.status === 'validée' ? 'rgba(34, 197, 94, 0.15)' : ord.status === 'refusée' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 179, 8, 0.15)';
+              const statusColor = ord.status === 'validée' ? '#22c55e' : ord.status === 'refusée' ? '#ef4444' : ord.status === 'récupérée' ? '#38bdf8' : '#eab308';
+              const statusBg = ord.status === 'validée' ? 'rgba(34, 197, 94, 0.15)' : ord.status === 'refusée' ? 'rgba(239, 68, 68, 0.15)' : ord.status === 'récupérée' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(234, 179, 8, 0.15)';
+              const uncollected48h = isOrderUncollectedOver48h(ord);
+              const reminderSent = hasReminderBeenSent(`order_48h_${ord.id}`);
               return (
                 <div key={ord.id} className="glass-card" style={{ padding: '20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                       <span className="font-serif text-gold" style={{ fontWeight: 800 }}>{ord.id}</span>
                       <span style={{ fontSize: '0.78rem', padding: '3px 10px', borderRadius: '12px', backgroundColor: statusBg, color: statusColor, fontWeight: 700 }}>
                         {ord.status.replace('_', ' ').toUpperCase()}
                       </span>
+                      {uncollected48h && (
+                        <span style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '12px', backgroundColor: 'rgba(251, 146, 60, 0.15)', color: '#fb923c', fontWeight: 700 }}>
+                          {t('admin_order_48h_badge')}
+                        </span>
+                      )}
                     </div>
                     <span style={{ color: 'var(--gold-light)', fontWeight: 700 }}>Total: ${ord.total.toFixed(2)}</span>
                   </div>
@@ -842,18 +892,37 @@ export const AdminPage = () => {
                     ))}
                   </div>
 
-                  {ord.status === 'en_attente' && (
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={() => handleOrderStatusChange(ord.id, 'validée')} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.3)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <CheckCircle2 size={15} />
-                        <span>Valider la commande</span>
-                      </button>
-                      <button onClick={() => handleOrderStatusChange(ord.id, 'refusée')} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <XCircle size={15} />
-                        <span>Refuser</span>
-                      </button>
-                    </div>
-                  )}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    {ord.status === 'en_attente' && (
+                      <>
+                        <button onClick={() => handleOrderStatusChange(ord.id, 'validée')} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.3)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <CheckCircle2 size={15} />
+                          <span>Valider la commande</span>
+                        </button>
+                        <button onClick={() => handleOrderStatusChange(ord.id, 'refusée')} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <XCircle size={15} />
+                          <span>Refuser</span>
+                        </button>
+                      </>
+                    )}
+
+                    {ord.status === 'validée' && (
+                      <>
+                        {reminderSent ? (
+                          <span style={{ fontSize: '0.78rem', color: '#22c55e', fontWeight: 700 }}>{t('admin_reminder_sent_badge')}</span>
+                        ) : (
+                          <button onClick={() => handleSendOrderReminder(ord)} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(251, 146, 60, 0.15)', color: '#fb923c', border: '1px solid rgba(251, 146, 60, 0.4)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Bell size={15} />
+                            <span>{t('admin_reminder_48h_btn')}</span>
+                          </button>
+                        )}
+                        <button onClick={() => handleMarkOrderCollected(ord.id)} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.35)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Package size={15} />
+                          <span>{t('admin_status_collected')}</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               );
             })}
