@@ -480,7 +480,7 @@ export const AdminPage = () => {
     const braid = {
       id: 'braid-' + Date.now(),
       title_fr: braidForm.title_fr,
-      title_en: braidForm.title_en,
+      title_en: braidForm.title_fr,
       category: braidForm.category,
       price: parseFloat(braidForm.price) || 0,
       duration: braidForm.duration,
@@ -501,7 +501,7 @@ export const AdminPage = () => {
   const handleEditBraid = (e) => {
     e.preventDefault();
     if (!editingBraidId) return;
-    const updated = dbSaveBraid({ id: editingBraidId, ...braidForm, price: parseFloat(braidForm.price) || 0 });
+    const updated = dbSaveBraid({ id: editingBraidId, ...braidForm, title_en: braidForm.title_fr, price: parseFloat(braidForm.price) || 0 });
     setBraids(braids.map(b => (b.id === editingBraidId ? updated : b)));
     setIsBraidModalOpen(false);
     setEditingBraidId(null);
@@ -1240,15 +1240,9 @@ export const AdminPage = () => {
                 {editingBraidId ? t('admin_modal_edit_title_braid') : t('admin_modal_title_braid')}
               </h3>
               <form onSubmit={editingBraidId ? handleEditBraid : handleAddBraid} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div>
-                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_name_fr')}</label>
-                    <input type="text" value={braidForm.title_fr} onChange={e => setBraidField('title_fr', e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_name_en')}</label>
-                    <input type="text" value={braidForm.title_en} onChange={e => setBraidField('title_en', e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
-                  </div>
+                <div>
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_name_braid')}</label>
+                  <input type="text" value={braidForm.title_fr} onChange={e => setBraidField('title_fr', e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>

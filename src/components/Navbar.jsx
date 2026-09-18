@@ -233,22 +233,24 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
             )
           )}
 
-          {/* Book Appointment CTA */}
-          <button
-            onClick={onOpenBooking}
-            className="bg-gold-gradient"
-            style={{
-              padding: '10px 20px',
-              borderRadius: '30px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '0.85rem'
-            }}
-          >
-            <Calendar size={16} />
-            <span>{t('nav_book_btn')}</span>
-          </button>
+          {/* Book Appointment CTA (hidden on the owner's dashboard) */}
+          {!isAdminLoggedIn && (
+            <button
+              onClick={onOpenBooking}
+              className="bg-gold-gradient"
+              style={{
+                padding: '10px 20px',
+                borderRadius: '30px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.85rem'
+              }}
+            >
+              <Calendar size={16} />
+              <span>{t('nav_book_btn')}</span>
+            </button>
+          )}
         </div>
       </div>
     </header>

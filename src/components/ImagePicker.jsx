@@ -92,22 +92,6 @@ export const ImagePicker = ({ label, value, onChange }) => {
           ✓ {value}
         </div>
       )}
-
-      <div style={{ marginTop: '8px' }}>
-        <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-          {t('admin_modal_image_manual')}
-        </label>
-        <input
-          type="text"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder="/assets/mon-image.jpg"
-          style={{
-            width: '100%', padding: '9px 10px', borderRadius: '6px',
-            backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff', fontSize: '0.85rem'
-          }}
-        />
-      </div>
     </div>
   );
 };
