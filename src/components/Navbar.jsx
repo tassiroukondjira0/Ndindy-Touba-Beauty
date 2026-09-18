@@ -201,26 +201,31 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => openAuth('login')}
-                title={t('client_login_btn_nav')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '7px',
-                  padding: '8px 14px',
-                  borderRadius: '22px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  color: 'var(--text-main)',
-                  fontSize: '0.82rem',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}
-              >
-                <User size={15} />
-                <span>{t('client_login_btn_nav')}</span>
-              </button>
+              // Only show the login button when truly a guest — never if the
+              // client is connected, nor if the salon owner is already logged in
+              // (the owner accesses his area via the Dashboard tab instead).
+              !isAdminLoggedIn && (
+                <button
+                  onClick={() => openAuth('login')}
+                  title={t('client_login_btn_nav')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    padding: '8px 14px',
+                    borderRadius: '22px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <User size={15} />
+                  <span>{t('client_login_btn_nav')}</span>
+                </button>
+              )
             )
           )}
 
