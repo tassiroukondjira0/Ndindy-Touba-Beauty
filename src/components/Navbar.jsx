@@ -71,6 +71,17 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
           gap: '8px'
         }}
       >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <span>📍 306 North Eutaw Street, Baltimore MD 21201</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Phone size={12} color="var(--gold-primary)" />
+            <a href="tel:4438581400" style={{ color: 'var(--gold-primary)', fontWeight: 600 }}>443-858-1400</a>
+          </span>
+        </div>
+        <div>
+          <span style={{ color: 'var(--gold-light)' }}>💳 Cash • Cash App • Zelle</span>
+        </div>
+      </div>
 
       {/* Main Navigation */}
       <div
