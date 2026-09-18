@@ -4,8 +4,7 @@ export const translations = {
     nav_home: "Accueil",
     nav_about: "À Propos & Carte",
     nav_braids: "Modèles & Tarifs",
-    nav_care: "Soins Cheveux & Corps",
-    nav_perfumes: "Parfumerie",
+    nav_products: "Produits",
     nav_tracking: "Suivi Client",
     nav_contact: "Contact",
     nav_book_btn: "Prendre Rendez-vous",
@@ -90,6 +89,14 @@ export const translations = {
     braid_duration: "Durée estimée",
     braid_includes: "Inclus",
     braid_hair_included: "Mèches fournies sur demande",
+
+    // Products (merged Shop page: care + perfumes)
+    products_tag: "Boutique & Beauté",
+    products_title: "Nos Produits",
+    products_subtitle: "Découvrez notre sélection de soins cheveux & corps et de parfums d'Orient, avec retrait au salon ou livraison.",
+    products_cat_all: "Tous les produits",
+    products_cat_care: "Soins Cheveux & Corps",
+    products_cat_perfume: "Parfumerie",
 
     // Care Products Catalog
     care_tag: "Cosmétique & Soins",
@@ -418,8 +425,7 @@ export const translations = {
     nav_home: "Home",
     nav_about: "About & Card",
     nav_braids: "Styles & Prices",
-    nav_care: "Hair & Body Care",
-    nav_perfumes: "Perfumes",
+    nav_products: "Products",
     nav_tracking: "Client Portal",
     nav_contact: "Contact",
     nav_book_btn: "Book Appointment",
@@ -504,6 +510,14 @@ export const translations = {
     braid_duration: "Estimated duration",
     braid_includes: "Includes",
     braid_hair_included: "Extensions available upon request",
+
+    // Products (merged Shop page: care + perfumes)
+    products_tag: "Shop & Beauty",
+    products_title: "Our Products",
+    products_subtitle: "Discover our hair & body care selection and oriental perfumes, available for in-salon pickup or delivery.",
+    products_cat_all: "All products",
+    products_cat_care: "Hair & Body Care",
+    products_cat_perfume: "Perfumery",
 
     // Care Products Catalog
     care_tag: "Cosmetics & Care",

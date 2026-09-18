@@ -115,7 +115,7 @@ export const BookingModal = ({ isOpen, onClose, preselectedBraid, navigateTo }) 
           maxWidth: '640px',
           maxHeight: '90vh',
           overflowY: 'auto',
-          padding: '32px',
+          padding: 'clamp(20px, 5vw, 32px)',
           position: 'relative',
           border: '1px solid rgba(212, 175, 55, 0.4)'
         }}
@@ -364,7 +364,7 @@ export const BookingModal = ({ isOpen, onClose, preselectedBraid, navigateTo }) 
                 <span style={{ color: 'var(--text-muted)' }}>{t('booking_ref')}</span>
                 <span className="font-serif text-gold" style={{ fontWeight: 800, fontSize: '1.1rem' }}>{bookingRef}</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '10px', marginBottom: '8px' }}>
                 <div><strong>{t('booking_summary_service')}</strong> {selectedTitle}</div>
                 <div><strong>{t('booking_summary_amount')}</strong> ${selectedBraid.price}</div>
                 <div><strong>{t('booking_summary_date')}</strong> {date}</div>

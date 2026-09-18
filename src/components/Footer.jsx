@@ -63,8 +63,7 @@ export const Footer = ({ navigateTo }) => {
               <li><button onClick={() => navigateTo && navigateTo('/')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>{t('nav_home')}</button></li>
               <li><button onClick={() => navigateTo && navigateTo('/about')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>{t('nav_about')}</button></li>
               <li><button onClick={() => navigateTo && navigateTo('/braids')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>{t('nav_braids')}</button></li>
-              <li><button onClick={() => navigateTo && navigateTo('/care')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>{t('nav_care')}</button></li>
-              <li><button onClick={() => navigateTo && navigateTo('/perfumes')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>{t('nav_perfumes')}</button></li>
+              <li><button onClick={() => navigateTo && navigateTo('/products')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>{t('nav_products')}</button></li>
               <li><button onClick={() => navigateTo && navigateTo('/tracking')} style={{ background: 'none', border: 'none', color: 'var(--gold-light)', cursor: 'pointer', fontWeight: 600 }}>🔍 {t('nav_tracking')}</button></li>
             </ul>
           </div>

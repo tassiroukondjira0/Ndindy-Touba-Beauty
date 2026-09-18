@@ -6,8 +6,7 @@ import { Navbar } from './components/Navbar';
 import { HomePage } from './pages/HomePage';
 import { AboutPage } from './pages/AboutPage';
 import { BraidsPage } from './pages/BraidsPage';
-import { CareProducts } from './components/CareProducts';
-import { PerfumesCatalog } from './components/PerfumesCatalog';
+import { ProductsPage } from './pages/ProductsPage';
 import { ClientTrackingPage } from './pages/ClientTrackingPage';
 import { AdminPage } from './pages/AdminPage';
 import { Footer } from './components/Footer';
@@ -79,18 +78,8 @@ export const AppContent = () => {
         return <AboutPage />;
       case '/braids':
         return <BraidsPage onSelectBraidForBooking={handleSelectBraidForBooking} />;
-      case '/care':
-        return (
-          <div style={{ paddingTop: '100px' }}>
-            <CareProducts onAddToCart={handleAddToCart} />
-          </div>
-        );
-      case '/perfumes':
-        return (
-          <div style={{ paddingTop: '100px' }}>
-            <PerfumesCatalog onAddToCart={handleAddToCart} />
-          </div>
-        );
+      case '/products':
+        return <ProductsPage onAddToCart={handleAddToCart} />;
       case '/tracking':
         return (
           <ClientTrackingPage 

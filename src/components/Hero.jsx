@@ -2,7 +2,7 @@ import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { Calendar, ArrowRight, Star, ShieldCheck, Award, Sparkles } from 'lucide-react';
 
-export const Hero = ({ onOpenBooking }) => {
+export const Hero = ({ onOpenBooking, navigateTo }) => {
   const { language, t } = useLanguage();
 
   return (
@@ -105,8 +105,8 @@ export const Hero = ({ onOpenBooking }) => {
                 <span>{t('hero_cta_book')}</span>
               </button>
 
-              <a
-                href="#perfumes"
+              <button
+                onClick={() => navigateTo && navigateTo('/products')}
                 style={{
                   padding: '16px 32px',
                   borderRadius: '40px',
@@ -123,7 +123,7 @@ export const Hero = ({ onOpenBooking }) => {
               >
                 <span>{t('hero_cta_shop')}</span>
                 <ArrowRight size={16} />
-              </a>
+              </button>
             </div>
 
             {/* Key Stats Bar */}

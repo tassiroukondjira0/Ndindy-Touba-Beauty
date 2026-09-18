@@ -551,7 +551,7 @@ export const AdminPage = () => {
           </div>
 
           <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '6px', color: 'var(--text-muted)' }}>{t('admin_reg_firstname')}</label>
                 <input type="text" value={regFirstName} onChange={e => setRegFirstName(e.target.value)} required placeholder={t('admin_reg_firstname_ph')} style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
@@ -572,7 +572,7 @@ export const AdminPage = () => {
               <input type="tel" value={regPhone} onChange={e => setRegPhone(e.target.value)} required placeholder={t('admin_reg_phone_ph')} style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '6px', color: 'var(--text-muted)' }}>{t('admin_reg_password')}</label>
                 <input type="password" value={regPassword} onChange={e => setRegPassword(e.target.value)} required placeholder={t('admin_reg_password_ph')} style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
@@ -765,7 +765,7 @@ export const AdminPage = () => {
                     position: 'absolute',
                     top: '54px',
                     right: 0,
-                    width: '360px',
+                    width: 'min(360px, calc(100vw - 40px))',
                     maxHeight: '420px',
                     overflowY: 'auto',
                     zIndex: 150,
@@ -1197,7 +1197,7 @@ export const AdminPage = () => {
                   <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_name')}</label>
                   <input type="text" value={newTitle} onChange={e => setNewTitle(e.target.value)} required placeholder={t('admin_modal_name_ph')} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
                   <div>
                     <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_category')}</label>
                     <select value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: '#141219', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }}>
@@ -1245,7 +1245,7 @@ export const AdminPage = () => {
                   <input type="text" value={braidForm.title_fr} onChange={e => setBraidField('title_fr', e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
                   <div>
                     <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_cat')}</label>
                     <select value={braidForm.category} onChange={e => setBraidField('category', e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: '#141219', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }}>
@@ -1257,7 +1257,7 @@ export const AdminPage = () => {
                       <option value="classic">Classic</option>
                     </select>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
                     <div>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_price')}</label>
                       <input type="number" step="0.01" min="0" value={braidForm.price} onChange={e => setBraidField('price', e.target.value)} required placeholder="250.00" style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />

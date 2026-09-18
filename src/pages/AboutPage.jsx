@@ -22,7 +22,7 @@ export const AboutPage = () => {
             <Award size={14} />
             <span>{t('cert_tag')}</span>
           </div>
-          <h2 className="font-serif text-gold" style={{ fontSize: '2.6rem', fontWeight: 700 }}>
+          <h2 className="font-serif text-gold" style={{ fontSize: 'clamp(1.8rem, 5vw, 2.6rem)', fontWeight: 700 }}>
             {t('cert_title')}
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '1.05rem', maxWidth: '680px', margin: '12px auto 0', lineHeight: 1.6 }}>

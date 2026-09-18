@@ -13,7 +13,7 @@ export const SalonInfo = () => {
           <div className="tag-badge" style={{ marginBottom: '12px' }}>
             {t('info_tag')}
           </div>
-          <h2 className="font-serif text-gold" style={{ fontSize: '2.5rem', fontWeight: 700 }}>
+          <h2 className="font-serif text-gold" style={{ fontSize: 'clamp(1.9rem, 5vw, 2.5rem)', fontWeight: 700 }}>
             {t('info_title')}
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '1.05rem', maxWidth: '650px', margin: '12px auto 0' }}>

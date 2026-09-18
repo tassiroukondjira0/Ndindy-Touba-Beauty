@@ -7,7 +7,7 @@ import { Testimonials } from '../components/Testimonials';
 export const HomePage = ({ onOpenBooking, navigateTo }) => {
   return (
     <div>
-      <Hero onOpenBooking={onOpenBooking} />
+      <Hero onOpenBooking={onOpenBooking} navigateTo={navigateTo} />
       <SalonInfo />
       <QuickTrackingBanner navigateTo={navigateTo} />
       <Testimonials />

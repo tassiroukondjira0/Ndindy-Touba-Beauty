@@ -72,7 +72,7 @@ export const CareProducts = ({ onAddToCart }) => {
             <Sparkles size={14} />
             <span>{t('care_tag')}</span>
           </div>
-          <h2 className="font-serif text-gold" style={{ fontSize: '2.8rem', fontWeight: 700 }}>
+          <h2 className="font-serif text-gold" style={{ fontSize: 'clamp(2rem, 5vw, 2.8rem)', fontWeight: 700 }}>
             {t('care_title')}
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem', maxWidth: '660px', margin: '12px auto 0' }}>

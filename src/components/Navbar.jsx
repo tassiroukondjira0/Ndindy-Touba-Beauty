@@ -3,7 +3,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useClientAuth } from '../context/ClientAuthContext';
 import { hasAdminAccount, getCurrentAdminSession } from '../services/auth';
 import { ClientNotificationBell } from './ClientNotificationBell';
-import { ShoppingBag, Calendar, Globe, Sparkles, User, LogOut } from 'lucide-react';
+import { ShoppingBag, Calendar, Globe, Sparkles, User, LogOut, Menu, X } from 'lucide-react';
 
 export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navigateTo }) => {
   const { language, toggleLanguage, t } = useLanguage();
@@ -11,6 +11,8 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
   const [isScrolled, setIsScrolled] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 1024px)').matches);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -25,13 +27,22 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
     setIsAdminLoggedIn(!!getCurrentAdminSession());
   }, [currentPath]);
 
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1024px)');
+    const handleChange = (e) => {
+      setIsMobile(e.matches);
+      if (!e.matches) setMobileOpen(false);
+    };
+    mq.addEventListener('change', handleChange);
+    return () => mq.removeEventListener('change', handleChange);
+  }, []);
+
   // Base client navigation items
   const navItems = [
     { path: '/', label: t('nav_home') },
     { path: '/about', label: t('nav_about') },
     { path: '/braids', label: t('nav_braids') },
-    { path: '/care', label: t('nav_care') },
-    { path: '/perfumes', label: t('nav_perfumes') },
+    { path: '/products', label: t('nav_products') },
     { path: '/tracking', label: t('nav_tracking') }
   ];
 
@@ -42,6 +53,33 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
     navItems.push({ path: '/admin', label: t('nav_initial_setup') });
   }
 
+  const handleNavigate = (path) => {
+    setMobileOpen(false);
+    navigateTo(path);
+  };
+
+  const renderNavLink = (item) => {
+    const isActive = currentPath === item.path;
+    return (
+      <button
+        key={item.path}
+        onClick={() => handleNavigate(item.path)}
+        style={{
+          background: 'none',
+          border: 'none',
+          color: isActive ? 'var(--gold-primary)' : 'var(--text-main)',
+          fontWeight: isActive ? 700 : 500,
+          borderBottom: isActive ? '2px solid var(--gold-primary)' : '2px solid transparent',
+          paddingBottom: '4px',
+          transition: 'all 0.2s',
+          cursor: 'pointer'
+        }}
+      >
+        {item.label}
+      </button>
+    );
+  };
+
   return (
     <header
       style={{
@@ -51,13 +89,12 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
         right: 0,
         zIndex: 100,
         transition: 'all 0.3s ease',
-        backgroundColor: isScrolled ? 'rgba(11, 10, 14, 0.95)' : 'rgba(11, 10, 14, 0.85)',
+        backgroundColor: isScrolled || mobileOpen ? 'rgba(11, 10, 14, 0.98)' : 'rgba(11, 10, 14, 0.85)',
         backdropFilter: 'blur(12px)',
         borderBottom: isScrolled ? '1px solid rgba(212, 175, 55, 0.25)' : '1px solid rgba(212, 175, 55, 0.1)',
         boxShadow: isScrolled ? '0 10px 30px rgba(0,0,0,0.5)' : 'none'
       }}
     >
-      {/* Main Navigation */}
       <div
         style={{
           maxWidth: '1280px',
@@ -65,13 +102,14 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
           padding: '14px 24px',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between'
+          justifyContent: 'space-between',
+          gap: '16px'
         }}
       >
         {/* Brand Logo */}
         <button
-          onClick={() => navigateTo('/')}
-          style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', textAlign: 'left', cursor: 'pointer' }}
+          onClick={() => handleNavigate('/')}
+          style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', textAlign: 'left', cursor: 'pointer', flexShrink: 0 }}
         >
           <div
             style={{
@@ -87,7 +125,7 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
           >
             <Sparkles size={22} color="#0b0a0e" />
           </div>
-          <div>
+          <div className="brand-text">
             <div className="font-serif text-gold" style={{ fontSize: '1.35rem', fontWeight: 700, lineHeight: 1.1, letterSpacing: '0.02em' }}>
               TOUBA NDINDY
             </div>
@@ -97,33 +135,15 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
           </div>
         </button>
 
-        {/* Dynamic Nav Links */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '22px', fontSize: '0.9rem', fontWeight: 600 }}>
-          {navItems.map(item => {
-            const isActive = currentPath === item.path;
-            return (
-              <button
-                key={item.path}
-                onClick={() => navigateTo(item.path)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: isActive ? 'var(--gold-primary)' : 'var(--text-main)',
-                  fontWeight: isActive ? 700 : 500,
-                  borderBottom: isActive ? '2px solid var(--gold-primary)' : '2px solid transparent',
-                  paddingBottom: '4px',
-                  transition: 'all 0.2s',
-                  cursor: 'pointer'
-                }}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
+        {/* Dynamic Nav Links (desktop) */}
+        {!isMobile && (
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '22px', fontSize: '0.9rem', fontWeight: 600 }}>
+            {navItems.map(renderNavLink)}
+          </nav>
+        )}
 
         {/* Actions (Language Switcher, Cart, Booking CTA) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0 }}>
           {/* Language Toggle Button */}
           <button
             onClick={toggleLanguage}
@@ -142,11 +162,11 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
             }}
           >
             <Globe size={15} />
-            <span>{language === 'fr' ? '🇫🇷 FR' : '🇬🇧 EN'}</span>
+            {!isMobile && <span>{language === 'fr' ? '🇫🇷 FR' : '🇬🇧 EN'}</span>}
           </button>
 
           {/* Client Notification Bell (only for clients, not for the owner's dashboard) */}
-          {!isAdminLoggedIn && <ClientNotificationBell navigateTo={navigateTo} />}
+          {!isAdminLoggedIn && !isMobile && <ClientNotificationBell navigateTo={navigateTo} />}
 
           {/* Cart Icon */}
           <button
@@ -161,7 +181,8 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
               color: 'var(--text-main)',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              flexShrink: 0
             }}
           >
             <ShoppingBag size={18} />
@@ -188,8 +209,8 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
             )}
           </button>
 
-          {/* Client Account */}
-          {authEnabled && !authLoading && (
+          {/* Client Account (desktop) */}
+          {!isMobile && authEnabled && !authLoading && (
             clientUser ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 6px 5px 14px', borderRadius: '22px', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(212, 175, 55, 0.25)' }}>
                 <User size={15} color="var(--gold-primary)" />
@@ -233,8 +254,8 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
             )
           )}
 
-          {/* Book Appointment CTA (hidden on the owner's dashboard) */}
-          {!isAdminLoggedIn && (
+          {/* Book Appointment CTA (desktop + hidden on the owner's dashboard) */}
+          {!isMobile && !isAdminLoggedIn && (
             <button
               onClick={onOpenBooking}
               className="bg-gold-gradient"
@@ -251,8 +272,126 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
               <span>{t('nav_book_btn')}</span>
             </button>
           )}
+
+          {/* Mobile hamburger */}
+          {isMobile && (
+            <button
+              onClick={() => setMobileOpen(o => !o)}
+              aria-label="Menu"
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                color: 'var(--text-main)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
+            >
+              {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Mobile drawer */}
+      {isMobile && mobileOpen && (
+        <div
+          style={{
+            maxWidth: '1280px',
+            margin: '0 auto',
+            padding: '0 24px 22px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px'
+          }}
+        >
+          {navItems.map(item => (
+            <button
+              key={item.path}
+              onClick={() => handleNavigate(item.path)}
+              style={{
+                textAlign: 'left',
+                padding: '14px 16px',
+                borderRadius: '12px',
+                background: currentPath === item.path ? 'rgba(212, 175, 55, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                color: currentPath === item.path ? 'var(--gold-primary)' : 'var(--text-main)',
+                fontSize: '0.95rem',
+                fontWeight: currentPath === item.path ? 700 : 500,
+                border: currentPath === item.path ? '1px solid rgba(212, 175, 55, 0.3)' : '1px solid transparent'
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+
+          {/* Client area actions inside drawer */}
+          {!isAdminLoggedIn && (
+            <div style={{ marginTop: '10px', paddingTop: '14px', borderTop: '1px solid rgba(212, 175, 55, 0.15)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <ClientNotificationBell navigateTo={navigateTo} />
+
+              {authEnabled && !authLoading && (
+                clientUser ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '22px', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(212, 175, 55, 0.25)' }}>
+                    <User size={15} color="var(--gold-primary)" />
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {clientUser.fullName || clientUser.firstName || t('client_account_menu')}
+                    </span>
+                    <button
+                      onClick={signOutClient}
+                      title={t('client_btn_logout')}
+                      style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(255, 255, 255, 0.08)', border: 'none', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                    >
+                      <LogOut size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => openAuth('login')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '7px',
+                      padding: '12px 14px',
+                      borderRadius: '22px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <User size={15} />
+                    <span>{t('client_login_btn_nav')}</span>
+                  </button>
+                )
+              )}
+
+              <button
+                onClick={() => { setMobileOpen(false); onOpenBooking(); }}
+                className="bg-gold-gradient"
+                style={{
+                  padding: '14px 20px',
+                  borderRadius: '30px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  fontSize: '0.9rem'
+                }}
+              >
+                <Calendar size={16} />
+                <span>{t('nav_book_btn')}</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </header>
   );
 };

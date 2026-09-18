@@ -149,3 +149,26 @@ img {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--gold-primary);
 }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .section-container {
+    padding: 60px 18px;
+  }
+  .brand-text {
+    display: none;
+  }
+  .glass-card {
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .section-container {
+    padding: 48px 14px;
+  }
+  .tag-badge {
+    padding: 5px 12px;
+    font-size: 0.75rem;
+  }
+}
