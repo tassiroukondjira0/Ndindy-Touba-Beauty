@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LanguageProvider } from './context/LanguageContext';
+import { ClientAuthProvider } from './context/ClientAuthContext';
 import { initDB } from './services/db';
 import { Navbar } from './components/Navbar';
 import { HomePage } from './pages/HomePage';
@@ -13,6 +14,7 @@ import { Footer } from './components/Footer';
 import { BookingModal } from './components/BookingModal';
 import { CartDrawer } from './components/CartDrawer';
 import { ClientNotificationWatcher } from './components/ClientNotificationWatcher';
+import { ClientAuthModal } from './components/ClientAuthModal';
 
 export const AppContent = () => {
   const [currentPath, setCurrentPath] = useState('/');
@@ -157,7 +159,10 @@ export const AppContent = () => {
 export function App() {
   return (
     <LanguageProvider>
-      <AppContent />
+      <ClientAuthProvider>
+        <AppContent />
+        <ClientAuthModal />
+      </ClientAuthProvider>
     </LanguageProvider>
   );
 }

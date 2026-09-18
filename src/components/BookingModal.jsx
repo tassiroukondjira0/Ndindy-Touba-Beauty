@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { useClientAuth } from '../context/ClientAuthContext';
 import { braidsData } from '../data/braidsData';
 import { dbAddReservation } from '../services/db';
 import { trackMyReference } from '../services/notifications';
-import { X, Calendar, Clock, User, Phone, Mail, CreditCard, CheckCircle2, Sparkles, Printer } from 'lucide-react';
+import { X, CheckCircle2, Sparkles, Printer } from 'lucide-react';
 
 export const BookingModal = ({ isOpen, onClose, preselectedBraid, navigateTo }) => {
   const { language, t } = useLanguage();
+  const { clientUser, authLoading, authEnabled, requestAuth } = useClientAuth();
 
   const [step, setStep] = useState(1);
   const [selectedBraid, setSelectedBraid] = useState(braidsData[0]);
@@ -33,6 +35,14 @@ export const BookingModal = ({ isOpen, onClose, preselectedBraid, navigateTo }) 
     setDate(dateStr);
   }, []);
 
+  // Prefill booking info from the connected client account.
+  useEffect(() => {
+    if (!clientUser) return;
+    setName(prev => prev || clientUser.fullName || clientUser.firstName || '');
+    setPhone(prev => prev || clientUser.phone || '');
+    setEmail(prev => prev || clientUser.email || '');
+  }, [clientUser]);
+
   if (!isOpen) return null;
 
   const timeSlots = [
@@ -41,29 +51,40 @@ export const BookingModal = ({ isOpen, onClose, preselectedBraid, navigateTo }) 
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const saved = dbAddReservation({
-      braidId: selectedBraid.id,
-      braidTitle: language === 'fr' ? selectedBraid.title_fr : selectedBraid.title_en,
-      price: selectedBraid.price,
-      date,
-      time,
-      clientName: name,
-      clientPhone: phone,
-      clientEmail: email,
-      notes,
-      paymentMethod
-    });
 
-    setBookingRef(saved.id);
-    setIsSuccess(true);
+    const performReservation = (profile) => {
+      const saved = dbAddReservation({
+        braidId: selectedBraid.id,
+        braidTitle: language === 'fr' ? selectedBraid.title_fr : selectedBraid.title_en,
+        price: selectedBraid.price,
+        date,
+        time,
+        clientName: name,
+        clientPhone: phone,
+        clientEmail: email,
+        clientUid: profile ? profile.uid : (clientUser ? clientUser.uid : undefined),
+        notes,
+        paymentMethod
+      });
 
-    // Remember this reservation on this device so we can alert the client
-    // automatically (browser notification + toast) once the salon validates it.
-    trackMyReference({
-      referenceId: saved.id,
-      type: 'reservation',
-      label: language === 'fr' ? selectedBraid.title_fr : selectedBraid.title_en
-    });
+      setBookingRef(saved.id);
+      setIsSuccess(true);
+
+      // Remember this reservation on this device so we can alert the client
+      // automatically (browser notification + toast) once the salon validates it.
+      trackMyReference({
+        referenceId: saved.id,
+        type: 'reservation',
+        label: language === 'fr' ? selectedBraid.title_fr : selectedBraid.title_en
+      });
+    };
+
+    // Require a client account before confirming (distinct from the owner account).
+    if (authEnabled && !authLoading && !clientUser) {
+      requestAuth(performReservation);
+    } else {
+      performReservation(clientUser);
+    }
   };
 
   const resetAndClose = () => {
@@ -320,8 +341,14 @@ export const BookingModal = ({ isOpen, onClose, preselectedBraid, navigateTo }) 
                     <button type="button" onClick={() => setStep(3)} style={{ flex: 1, padding: '14px', borderRadius: '30px', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-main)', border: '1px solid rgba(255, 255, 255, 0.2)' }}>{t('common_back')}</button>
                     <button type="submit" className="bg-gold-gradient" style={{ flex: 2, padding: '14px', borderRadius: '30px', fontSize: '0.95rem' }}>{t('booking_confirm_btn')}</button>
                   </div>
-                </div>
-              )}
+
+                  {authEnabled && !authLoading && !clientUser && (
+                    <div style={{ marginTop: '16px', padding: '12px 14px', borderRadius: '10px', backgroundColor: 'rgba(212, 175, 55, 0.08)', border: '1px dashed rgba(212, 175, 55, 0.35)', fontSize: '0.82rem', color: 'var(--gold-light)', textAlign: 'center' }}>
+                      🔐 {t('client_auth_required_note')}
+                    </div>
+                  )}
+                  </div>
+                )}
             </form>
           </>
         ) : (
@@ -339,18 +366,18 @@ export const BookingModal = ({ isOpen, onClose, preselectedBraid, navigateTo }) 
                 <span className="font-serif text-gold" style={{ fontWeight: 800, fontSize: '1.1rem' }}>{bookingRef}</span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '8px' }}>
-                <div><strong>Coiffure:</strong> {selectedTitle}</div>
-                <div><strong>Montant:</strong> ${selectedBraid.price}</div>
-                <div><strong>Date:</strong> {date}</div>
-                <div><strong>Heure:</strong> {time}</div>
-                <div><strong>Client:</strong> {name}</div>
-                <div><strong>Paiement:</strong> {paymentMethod.toUpperCase()}</div>
+                <div><strong>{t('booking_summary_service')}</strong> {selectedTitle}</div>
+                <div><strong>{t('booking_summary_amount')}</strong> ${selectedBraid.price}</div>
+                <div><strong>{t('booking_summary_date')}</strong> {date}</div>
+                <div><strong>{t('booking_summary_time')}</strong> {time}</div>
+                <div><strong>{t('booking_summary_client')}</strong> {name}</div>
+                <div><strong>{t('booking_summary_payment')}</strong> {paymentMethod.toUpperCase()}</div>
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--gold-light)', marginTop: '8px', borderTop: '1px dashed rgba(212,175,55,0.2)', paddingTop: '8px' }}>
                 📍 TOUBA NDINDY - 306 North Eutaw Street, Baltimore MD 21201 | 📞 443-858-1400
               </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--gold-light)', marginTop: '10px' }}>
-                🔔 Vous serez notifié dès que le salon aura validé votre réservation.
+                {t('booking_notif_alert')}
               </div>
             </div>
 

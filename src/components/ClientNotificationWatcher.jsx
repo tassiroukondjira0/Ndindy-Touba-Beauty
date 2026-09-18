@@ -5,8 +5,10 @@ import {
   showBrowserNotification,
   playNotificationChime,
   getMyTrackedReferences,
-  checkAndSendAutomatedReminders
+  checkAndSendAutomatedReminders,
+  mergeCloudNotifications
 } from '../services/notifications';
+import { isFirebaseConfigured, subscribeToCloudNotifications } from '../services/firebase';
 import { CheckCircle2, XCircle, Bell, X, Clock, ShoppingBag, Calendar } from 'lucide-react';
 
 // Mounted once at the app root. Silently watches (via storage events + a short
@@ -56,6 +58,22 @@ export const ClientNotificationWatcher = () => {
       window.removeEventListener('storage', handleStorage);
       clearInterval(interval);
     };
+  }, []);
+
+  // Live-sync reminders/status updates generated on OTHER devices (e.g. the
+  // salon owner's dashboard) so this device receives them without any manual
+  // action. Only references tracked on this device are kept for privacy.
+  useEffect(() => {
+    if (!isFirebaseConfigured()) return () => {};
+    const unsub = subscribeToCloudNotifications((cloudNotifs) => {
+      const myRefIds = new Set(getMyTrackedReferences().map(r => r.referenceId));
+      if (myRefIds.size === 0) return;
+      const relevant = cloudNotifs.filter(n => n && n.referenceId && myRefIds.has(n.referenceId));
+      if (mergeCloudNotifications(relevant) > 0) {
+        checkForUpdates();
+      }
+    });
+    return () => { if (unsub) unsub(); };
   }, []);
 
   const dismissToast = (toastId) => {

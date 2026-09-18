@@ -1,7 +1,7 @@
 import { braidsData } from '../data/braidsData';
 import { productsData } from '../data/productsData';
 import { perfumesData } from '../data/perfumesData';
-import { addAdminNotification, addClientNotification, getMyTrackedReferences } from './notifications';
+import { addAdminNotification, addClientNotification, getMyTrackedReferences, biText } from './notifications';
 import { 
   isFirebaseConfigured, 
   cloudAddReservation, 
@@ -208,8 +208,11 @@ export const dbAddReservation = (reservation) => {
   // Trigger Admin Notification
   addAdminNotification({
     type: 'reservation',
-    title: '📅 Nouvelle Réservation de Tresse',
-    message: `${newRes.clientName} (${newRes.clientPhone}) a réservé "${newRes.braidTitle}" pour le ${newRes.date} à ${newRes.time}.`,
+    title: biText('📅 Nouvelle Réservation de Tresse', '📅 New Braiding Booking'),
+    message: biText(
+      `${newRes.clientName} (${newRes.clientPhone}) a réservé "${newRes.braidTitle}" pour le ${newRes.date} à ${newRes.time}.`,
+      `${newRes.clientName} (${newRes.clientPhone}) booked "${newRes.braidTitle}" for ${newRes.date} at ${newRes.time}.`
+    ),
     referenceId: refId
   });
 
@@ -237,14 +240,20 @@ export const dbUpdateReservationStatus = (id, status) => {
   localStorage.setItem(STORAGE_KEYS.RESERVATIONS, JSON.stringify(updated));
 
   if (targetRes) {
-    const statusText = status === 'confirmée' ? 'VALIDÉE et CONFIRMÉE' : status === 'annulée' ? 'ANNULÉE' : 'MISE À JOUR';
+    const statusTextFr = status === 'confirmée' ? 'VALIDÉE et CONFIRMÉE' : status === 'annulée' ? 'ANNULÉE' : 'MISE À JOUR';
+    const statusTextEn = status === 'confirmée' ? 'VALIDATED and CONFIRMED' : status === 'annulée' ? 'CANCELLED' : 'UPDATED';
     addClientNotification({
       referenceId: targetRes.id,
       recipientPhone: targetRes.clientPhone,
       recipientEmail: targetRes.clientEmail,
       type: 'status_update',
-      title: status === 'confirmée' ? '✅ Votre Réservation a été Confirmée !' : '⚠️ Statut de Réservation Modifié',
-      message: `Bonjour ${targetRes.clientName}, votre réservation (${targetRes.braidTitle} le ${targetRes.date} à ${targetRes.time}) est désormais ${statusText} par le salon TOUBA NDINDY.`
+      title: status === 'confirmée'
+        ? biText('✅ Votre Réservation a été Confirmée !', '✅ Your Booking has been Confirmed!')
+        : biText('⚠️ Statut de Réservation Modifié', '⚠️ Booking Status Updated'),
+      message: biText(
+        `Bonjour ${targetRes.clientName}, votre réservation (${targetRes.braidTitle} le ${targetRes.date} à ${targetRes.time}) est désormais ${statusTextFr} par le salon TOUBA NDINDY.`,
+        `Hello ${targetRes.clientName}, your booking (${targetRes.braidTitle} on ${targetRes.date} at ${targetRes.time}) is now ${statusTextEn} by TOUBA NDINDY salon.`
+      )
     });
 
     // Sync to Cloud Firebase in background if configured
@@ -279,8 +288,11 @@ export const dbAddOrder = (orderData) => {
   // Notify the ADMIN immediately that a new order needs validation
   addAdminNotification({
     type: 'order',
-    title: '🛒 Nouvelle Commande à Valider',
-    message: `${newOrder.clientName} (${newOrder.clientPhone}) a passé une commande de ${newOrder.total.toFixed(2)}$ (${newOrder.items.length} article(s)). En attente de validation.`,
+    title: biText('🛒 Nouvelle Commande à Valider', '🛒 New Order to Validate'),
+    message: biText(
+      `${newOrder.clientName} (${newOrder.clientPhone}) a passé une commande de ${newOrder.total.toFixed(2)}$ (${newOrder.items.length} article(s)). En attente de validation.`,
+      `${newOrder.clientName} (${newOrder.clientPhone}) placed an order of $${newOrder.total.toFixed(2)} (${newOrder.items.length} item(s)). Pending validation.`
+    ),
     referenceId: orderId
   });
 
@@ -317,8 +329,11 @@ export const dbUpdateOrderStatus = (id, status) => {
         recipientPhone: targetOrder.clientPhone,
         recipientEmail: targetOrder.clientEmail || '',
         type: 'order_validated',
-        title: '✅ Votre Commande a été Validée !',
-        message: `Bonjour ${targetOrder.clientName}, votre commande (${targetOrder.id}) d'un montant de ${targetOrder.total.toFixed(2)}$ a été validée et est en préparation chez TOUBA NDINDY.`
+        title: biText('✅ Votre Commande a été Validée !', '✅ Your Order has been Validated!'),
+        message: biText(
+          `Bonjour ${targetOrder.clientName}, votre commande (${targetOrder.id}) d'un montant de ${targetOrder.total.toFixed(2)}$ a été validée et est en préparation chez TOUBA NDINDY.`,
+          `Hello ${targetOrder.clientName}, your order (${targetOrder.id}) of $${targetOrder.total.toFixed(2)} has been validated and is being prepared at TOUBA NDINDY.`
+        )
       });
     } else if (status === 'refusée') {
       addClientNotification({
@@ -326,8 +341,11 @@ export const dbUpdateOrderStatus = (id, status) => {
         recipientPhone: targetOrder.clientPhone,
         recipientEmail: targetOrder.clientEmail || '',
         type: 'order_refused',
-        title: '⚠️ Commande Refusée',
-        message: `Bonjour ${targetOrder.clientName}, votre commande (${targetOrder.id}) n'a malheureusement pas pu être validée par le salon TOUBA NDINDY. Contactez-nous au 443-858-1400 pour plus d'informations.`
+        title: biText('⚠️ Commande Refusée', '⚠️ Order Declined'),
+        message: biText(
+          `Bonjour ${targetOrder.clientName}, votre commande (${targetOrder.id}) n'a malheureusement pas pu être validée par le salon TOUBA NDINDY. Contactez-nous au 443-858-1400 pour plus d'informations.`,
+          `Hello ${targetOrder.clientName}, your order (${targetOrder.id}) unfortunately could not be validated by TOUBA NDINDY salon. Contact us at 443-858-1400 for more information.`
+        )
       });
     } else if (status === 'récupérée') {
       addClientNotification({
@@ -335,8 +353,11 @@ export const dbUpdateOrderStatus = (id, status) => {
         recipientPhone: targetOrder.clientPhone,
         recipientEmail: targetOrder.clientEmail || '',
         type: 'order_collected',
-        title: '✅ Commande Récupérée — Merci !',
-        message: `Bonjour ${targetOrder.clientName}, nous confirmons la récupération de votre commande (${targetOrder.id}). Merci de votre confiance et à très bientôt chez TOUBA NDINDY !`
+        title: biText('✅ Commande Récupérée — Merci !', '✅ Order Collected — Thank you!'),
+        message: biText(
+          `Bonjour ${targetOrder.clientName}, nous confirmons la récupération de votre commande (${targetOrder.id}). Merci de votre confiance et à très bientôt chez TOUBA NDINDY !`,
+          `Hello ${targetOrder.clientName}, we confirm that your order (${targetOrder.id}) has been collected. Thank you for your trust and see you soon at TOUBA NDINDY!`
+        )
       });
     }
 

@@ -501,3 +501,73 @@ export const cloudSearchReservationsAndOrders = async (queryTerm = '') => {
     return { reservations: [], orders: [] };
   }
 };
+
+// --- CLOUD FIRESTORE & AUTH: CLIENT PROFILES ---
+// Client accounts are kept fully separate from the salon owner admin account
+// (which lives in the 'admins'/'users' collections with role 'admin').
+
+export const cloudCreateClientProfile = async (uid, profileData) => {
+  if (!isFirebaseConfigured() || !db || !uid) return null;
+  try {
+    const docRef = doc(db, 'clientProfiles', uid);
+    const data = {
+      ...profileData,
+      uid,
+      role: 'client',
+      updatedAt: serverTimestamp()
+    };
+    await setDoc(docRef, data, { merge: true });
+    return data;
+  } catch (err) {
+    console.warn("Client profile cloud error:", err);
+    return null;
+  }
+};
+
+export const cloudGetClientProfile = async (uid) => {
+  if (!isFirebaseConfigured() || !db || !uid) return null;
+  try {
+    const snap = await getDoc(doc(db, 'clientProfiles', uid));
+    return snap.exists() ? snap.data() : null;
+  } catch (err) {
+    console.warn("Client profile get error:", err);
+    return null;
+  }
+};
+
+// --- CLOUD FIRESTORE HELPERS: CLIENT NOTIFICATIONS ---
+// Client notifications are persisted to Firestore so reminders and status
+// updates generated on one device (admin, another client) can reach every
+// device that tracks the same reference — fully automatically.
+export const cloudAddNotification = async (notif) => {
+  if (!isFirebaseConfigured() || !db) return null;
+  try {
+    const docId = notif.id || ('cnotif-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
+    const docRef = doc(db, 'notifications', docId);
+    await setDoc(docRef, { ...notif, id: docId, cloudCreatedAt: serverTimestamp() }, { merge: true });
+    return docId;
+  } catch (err) {
+    console.warn("Cloud notification error:", err);
+    return null;
+  }
+};
+
+export const subscribeToCloudNotifications = (onUpdate, onError) => {
+  if (!isFirebaseConfigured() || !db) return () => {};
+  try {
+    const q = collection(db, 'notifications');
+    return onSnapshot(q, (snapshot) => {
+      const items = [];
+      snapshot.forEach(d => {
+        items.push({ ...d.data(), id: d.id });
+      });
+      onUpdate(items);
+    }, (err) => {
+      console.warn("Firestore notifications subscription warning:", err);
+      if (onError) onError(err);
+    });
+  } catch (err) {
+    console.warn("Error establishing notifications subscription:", err);
+    return () => {};
+  }
+};

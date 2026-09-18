@@ -41,8 +41,7 @@ import {
   getNotificationPermission,
   showBrowserNotification,
   playNotificationChime,
-  sendManualReservationReminder,
-  sendManualOrderPickupReminder,
+  checkAndSendAutomatedReminders,
   isReservationWithin24h,
   isOrderUncollectedOver48h,
   hasReminderBeenSent
@@ -69,7 +68,7 @@ import {
 } from 'lucide-react';
 
 export const AdminPage = () => {
-  const { language, t } = useLanguage();
+  const { t } = useLanguage();
   
   // Auth state
   const [accountExists, setAccountExists] = useState(false);
@@ -187,6 +186,20 @@ export const AdminPage = () => {
     }
   }, [currentSession]);
 
+  // Fully automatic reminders: scan for 24h reservation reminders and 48h
+  // uncollected-order pickup reminders on a schedule — the owner never has to
+  // trigger them manually.
+  useEffect(() => {
+    if (!currentSession) return () => {};
+    checkAndSendAutomatedReminders();
+    loadDashboardData();
+    const interval = setInterval(() => {
+      checkAndSendAutomatedReminders();
+      loadDashboardData();
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [currentSession]);
+
   useEffect(() => {
     const handleStorageChange = () => {
       if (currentSession) {
@@ -238,7 +251,7 @@ export const AdminPage = () => {
     setRegError('');
 
     if (regPassword !== regConfirm) {
-      setRegError("Les mots de passe ne correspondent pas.");
+      setRegError(t('admin_reg_mismatch'));
       return;
     }
 
@@ -290,16 +303,6 @@ export const AdminPage = () => {
     setOrders(dbUpdateOrderStatus(id, newStatus));
   };
 
-  const handleSendReservationReminder = (res) => {
-    sendManualReservationReminder(res);
-    loadDashboardData();
-  };
-
-  const handleSendOrderReminder = (ord) => {
-    sendManualOrderPickupReminder(ord);
-    loadDashboardData();
-  };
-
   const handleMarkOrderCollected = (id) => {
     setOrders(dbUpdateOrderStatus(id, 'récupérée'));
     loadDashboardData();
@@ -309,8 +312,8 @@ export const AdminPage = () => {
     const result = await requestNotificationPermission();
     setNotifPermission(result);
     if (result === 'granted') {
-      showBrowserNotification('🔔 Notifications Activées', {
-        body: 'Vous recevrez désormais une alerte instantanée pour chaque nouvelle réservation ou commande.'
+      showBrowserNotification(t('admin_notif_enabled_title'), {
+        body: t('admin_notif_enabled_body')
       });
     }
   };
@@ -331,7 +334,7 @@ export const AdminPage = () => {
   };
 
   const handleDeleteProduct = (id, type) => {
-    if (window.confirm('Voulez-vous vraiment supprimer ce produit ?')) {
+    if (window.confirm(t('admin_confirm_delete'))) {
       if (type === 'perfume') {
         setPerfumes(dbDeleteProduct(id, 'perfume'));
       } else {
@@ -369,6 +372,19 @@ export const AdminPage = () => {
     email: regEmail
   });
 
+  const getResStatusLabel = (status) => {
+    if (status === 'confirmée') return t('admin_status_res_confirmed');
+    if (status === 'annulée') return t('admin_status_res_cancelled');
+    return t('admin_status_res_pending');
+  };
+
+  const getOrderStatusLabel = (status) => {
+    if (status === 'validée') return t('admin_status_order_validated');
+    if (status === 'refusée') return t('admin_status_order_refused');
+    if (status === 'récupérée') return t('admin_status_order_collected');
+    return t('admin_status_order_pending');
+  };
+
   // SCENARIO A: NO ACCOUNT CREATED YET
   if (!accountExists) {
     return (
@@ -379,53 +395,53 @@ export const AdminPage = () => {
               <ShieldCheck size={32} />
             </div>
             <h2 className="font-serif text-gold" style={{ fontSize: '2.1rem', fontWeight: 700, marginBottom: '6px' }}>
-              Création Unique du Compte Propriétaire
+              {t('admin_reg_title')}
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-              Configurez les accès administrateur du salon TOUBA NDINDY. <strong>Cette inscription ne pourra être effectuée qu'une seule fois.</strong>
+              {t('admin_reg_subtitle')} <strong>{t('admin_reg_subtitle_strong')}</strong>
             </p>
           </div>
 
           <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '6px', color: 'var(--text-muted)' }}>Prénom</label>
-                <input type="text" value={regFirstName} onChange={e => setRegFirstName(e.target.value)} required placeholder="Ex: Fatou" style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+                <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '6px', color: 'var(--text-muted)' }}>{t('admin_reg_firstname')}</label>
+                <input type="text" value={regFirstName} onChange={e => setRegFirstName(e.target.value)} required placeholder={t('admin_reg_firstname_ph')} style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '6px', color: 'var(--text-muted)' }}>Nom de famille</label>
-                <input type="text" value={regLastName} onChange={e => setRegLastName(e.target.value)} required placeholder="Ex: Diallo" style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+                <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '6px', color: 'var(--text-muted)' }}>{t('admin_reg_lastname')}</label>
+                <input type="text" value={regLastName} onChange={e => setRegLastName(e.target.value)} required placeholder={t('admin_reg_lastname_ph')} style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
               </div>
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '6px', color: 'var(--text-muted)' }}>Adresse E-mail Administrateur</label>
-              <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} required placeholder="Ex: proprietaire@toubandindy.com" style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+              <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '6px', color: 'var(--text-muted)' }}>{t('admin_reg_email')}</label>
+              <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} required placeholder={t('admin_reg_email_ph')} style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '6px', color: 'var(--text-muted)' }}>Numéro de Téléphone</label>
-              <input type="tel" value={regPhone} onChange={e => setRegPhone(e.target.value)} required placeholder="Ex: 443-858-1400" style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+              <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '6px', color: 'var(--text-muted)' }}>{t('admin_reg_phone')}</label>
+              <input type="tel" value={regPhone} onChange={e => setRegPhone(e.target.value)} required placeholder={t('admin_reg_phone_ph')} style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '6px', color: 'var(--text-muted)' }}>Mot de passe sécurisé</label>
-                <input type="password" value={regPassword} onChange={e => setRegPassword(e.target.value)} required placeholder="Min. 8 caractères" style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+                <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '6px', color: 'var(--text-muted)' }}>{t('admin_reg_password')}</label>
+                <input type="password" value={regPassword} onChange={e => setRegPassword(e.target.value)} required placeholder={t('admin_reg_password_ph')} style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '6px', color: 'var(--text-muted)' }}>Confirmation</label>
-                <input type="password" value={regConfirm} onChange={e => setRegConfirm(e.target.value)} required placeholder="Confirmation" style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+                <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '6px', color: 'var(--text-muted)' }}>{t('admin_reg_confirm')}</label>
+                <input type="password" value={regConfirm} onChange={e => setRegConfirm(e.target.value)} required placeholder={t('admin_reg_confirm_ph')} style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
               </div>
             </div>
 
             {regPassword.length > 0 && (
               <div style={{ backgroundColor: 'rgba(212,175,55,0.06)', padding: '12px 16px', borderRadius: '8px', fontSize: '0.8rem', border: '1px solid rgba(212,175,55,0.2)' }}>
-                <div style={{ fontWeight: 700, color: 'var(--gold-light)', marginBottom: '6px' }}>Critères de Sécurité Obligatoires :</div>
-                <div style={{ color: regPassword.length >= 8 ? '#22c55e' : '#ef4444' }}>{regPassword.length >= 8 ? '✓' : '✗'} 8 caractères minimum</div>
-                <div style={{ color: !hasConsecutiveSequentialChars(regPassword) ? '#22c55e' : '#ef4444' }}>{!hasConsecutiveSequentialChars(regPassword) ? '✓' : '✗'} Aucune suite consécutive (ex: 123, abc, 321)</div>
-                <div style={{ color: pwdValidation.isValid ? '#22c55e' : '#ef4444' }}>{pwdValidation.isValid ? '✓' : '✗'} Exclut votre prénom, nom ou e-mail</div>
-                <div style={{ color: (regPassword === regConfirm && regConfirm.length > 0) ? '#22c55e' : '#ef4444' }}>{(regPassword === regConfirm && regConfirm.length > 0) ? '✓' : '✗'} Mots de passe identiques</div>
+                <div style={{ fontWeight: 700, color: 'var(--gold-light)', marginBottom: '6px' }}>{t('admin_reg_security_title')}</div>
+                <div style={{ color: regPassword.length >= 8 ? '#22c55e' : '#ef4444' }}>{regPassword.length >= 8 ? '✓' : '✗'} {t('admin_reg_sec_length')}</div>
+                <div style={{ color: !hasConsecutiveSequentialChars(regPassword) ? '#22c55e' : '#ef4444' }}>{!hasConsecutiveSequentialChars(regPassword) ? '✓' : '✗'} {t('admin_reg_sec_sequence')}</div>
+                <div style={{ color: pwdValidation.isValid ? '#22c55e' : '#ef4444' }}>{pwdValidation.isValid ? '✓' : '✗'} {t('admin_reg_sec_personal')}</div>
+                <div style={{ color: (regPassword === regConfirm && regConfirm.length > 0) ? '#22c55e' : '#ef4444' }}>{(regPassword === regConfirm && regConfirm.length > 0) ? '✓' : '✗'} {t('admin_reg_sec_match')}</div>
               </div>
             )}
 
@@ -439,7 +455,7 @@ export const AdminPage = () => {
               className="bg-gold-gradient" 
               style={{ width: '100%', padding: '14px', borderRadius: '30px', fontWeight: 700, fontSize: '0.95rem', marginTop: '10px', opacity: isAuthLoading ? 0.7 : 1, cursor: isAuthLoading ? 'not-allowed' : 'pointer' }}
             >
-              {isAuthLoading ? "Enregistrement sécurisé en cours..." : "Valider et Verrouiller l'Inscription Unique →"}
+              {isAuthLoading ? t('admin_reg_submitting') : t('admin_reg_submit')}
             </button>
           </form>
         </div>
@@ -456,33 +472,33 @@ export const AdminPage = () => {
             <Lock size={28} />
           </div>
           <h2 className="font-serif text-gold" style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '6px' }}>
-            Accès Réservé à l'Administrateur
+            {t('admin_login_title')}
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '24px' }}>
-            Veuillez vous connecter avec vos identifiants administrateur.
+            {t('admin_login_subtitle')}
           </p>
 
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '6px', color: 'var(--text-muted)' }}>Adresse E-mail</label>
+              <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '6px', color: 'var(--text-muted)' }}>{t('admin_login_email')}</label>
               <input
                 type="email"
                 value={loginEmail}
                 onChange={e => setLoginEmail(e.target.value)}
                 required
-                placeholder="Ex: proprietaire@toubandindy.com"
+                placeholder={t('admin_reg_email_ph')}
                 style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }}
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '6px', color: 'var(--text-muted)' }}>Mot de Passe</label>
+              <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '6px', color: 'var(--text-muted)' }}>{t('admin_login_password')}</label>
               <input
                 type="password"
                 value={loginPassword}
                 onChange={e => setLoginPassword(e.target.value)}
                 required
-                placeholder="Votre mot de passe"
+                placeholder={t('admin_login_password_ph')}
                 style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }}
               />
             </div>
@@ -499,7 +515,7 @@ export const AdminPage = () => {
               className="bg-gold-gradient" 
               style={{ width: '100%', padding: '14px', borderRadius: '30px', fontWeight: 700, fontSize: '0.95rem', marginTop: '6px', opacity: isAuthLoading ? 0.7 : 1, cursor: isAuthLoading ? 'not-allowed' : 'pointer' }}
             >
-              {isAuthLoading ? "Connexion en cours..." : "Se Connecter à la Gestion du Salon"}
+              {isAuthLoading ? t('admin_login_submitting') : t('admin_login_submit')}
             </button>
           </form>
         </div>
@@ -520,10 +536,10 @@ export const AdminPage = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', marginBottom: '40px', position: 'relative' }}>
           <div>
             <div className="tag-badge" style={{ marginBottom: '8px' }}>
-              <span>Espace Administrateur Certifié</span>
+              <span>{t('admin_header_badge')}</span>
             </div>
             <h1 className="font-serif text-gold" style={{ fontSize: '2.4rem', fontWeight: 700 }}>
-              Bienvenue, {adminAccount ? adminAccount.firstName : ''} {adminAccount ? adminAccount.lastName : ''}
+              {t('admin_welcome')} {adminAccount ? adminAccount.firstName : ''} {adminAccount ? adminAccount.lastName : ''}
             </h1>
           </div>
 
@@ -546,7 +562,7 @@ export const AdminPage = () => {
                 }}
               >
                 <Bell size={15} />
-                <span>Activer les alertes navigateur</span>
+                <span>{t('admin_enable_alerts')}</span>
               </button>
             )}
 
@@ -612,7 +628,7 @@ export const AdminPage = () => {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid rgba(212,175,55,0.2)', paddingBottom: '10px' }}>
                     <h4 className="font-serif text-gold" style={{ fontSize: '1.2rem', fontWeight: 700 }}>
-                      Notifications en Temps Réel
+                      {t('admin_realtime_title')}
                     </h4>
                     {unreadNotifCount > 0 && (
                       <button
@@ -620,14 +636,14 @@ export const AdminPage = () => {
                         style={{ background: 'none', border: 'none', color: 'var(--gold-light)', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
                       >
                         <CheckCheck size={14} />
-                        <span>Tout marquer lu</span>
+                        <span>{t('admin_mark_all_read')}</span>
                       </button>
                     )}
                   </div>
 
                   {adminNotifs.length === 0 ? (
                     <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', padding: '20px 0' }}>
-                      Aucune notification pour le moment.
+                      {t('admin_notif_none')}
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -661,7 +677,7 @@ export const AdminPage = () => {
               style={{ padding: '10px 22px', borderRadius: '30px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}
             >
               <LogOut size={16} />
-              <span>{language === 'fr' ? 'Se Déconnecter' : 'Log Out'}</span>
+              <span>{t('admin_logout')}</span>
             </button>
           </div>
         </div>
@@ -673,7 +689,7 @@ export const AdminPage = () => {
               <Calendar size={24} />
             </div>
             <div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{language === 'fr' ? 'Réservations de Tresses' : 'Braiding Bookings'}</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('admin_metric_bookings')}</div>
               <div className="font-serif text-gold" style={{ fontSize: '1.6rem', fontWeight: 700 }}>{totalReservationsCount}</div>
             </div>
           </div>
@@ -683,7 +699,7 @@ export const AdminPage = () => {
               <DollarSign size={24} />
             </div>
             <div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{language === 'fr' ? "Ventes & Chiffre d'Affaires" : "Sales & Revenue"}</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('admin_metric_revenue')}</div>
               <div className="font-serif text-gold" style={{ fontSize: '1.6rem', fontWeight: 700 }}>${totalRevenue.toFixed(2)}</div>
             </div>
           </div>
@@ -693,8 +709,8 @@ export const AdminPage = () => {
               <AlertTriangle size={24} />
             </div>
             <div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{language === 'fr' ? 'Stock Faible (< 5)' : 'Low Stock (< 5)'}</div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#ef4444' }}>{lowStockItems.length} {language === 'fr' ? 'articles' : 'items'}</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('admin_metric_lowstock')}</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#ef4444' }}>{lowStockItems.length} {t('admin_metric_items')}</div>
             </div>
           </div>
         </div>
@@ -712,7 +728,7 @@ export const AdminPage = () => {
               border: activeTab === 'reservations' ? 'none' : '1px solid rgba(212,175,55,0.2)'
             }}
           >
-            📋 {language === 'fr' ? 'Réservations' : 'Bookings'} ({reservations.length})
+            📋 {t('admin_tab_short_reservations')} ({reservations.length})
           </button>
           <button
             onClick={() => setActiveTab('products')}
@@ -725,7 +741,7 @@ export const AdminPage = () => {
               border: activeTab === 'products' ? 'none' : '1px solid rgba(212,175,55,0.2)'
             }}
           >
-            📦 {language === 'fr' ? 'Produits & Stock' : 'Products & Stock'} ({allProductsList.length})
+            📦 {t('admin_tab_short_products')} ({allProductsList.length})
           </button>
           <button
             onClick={() => setActiveTab('orders')}
@@ -738,7 +754,7 @@ export const AdminPage = () => {
               border: activeTab === 'orders' ? 'none' : '1px solid rgba(212,175,55,0.2)'
             }}
           >
-            🛒 {language === 'fr' ? 'Commandes' : 'Orders'} ({orders.length})
+            🛒 {t('admin_tab_short_orders')} ({orders.length})
           </button>
           <button
             onClick={() => setActiveTab('profile')}
@@ -751,7 +767,7 @@ export const AdminPage = () => {
               border: activeTab === 'profile' ? 'none' : '1px solid rgba(212,175,55,0.2)'
             }}
           >
-            👤 {language === 'fr' ? 'Mon Profil Admin' : 'My Admin Profile'}
+            👤 {t('admin_tab_short_profile')}
           </button>
         </div>
 
@@ -768,7 +784,7 @@ export const AdminPage = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
                       <span className="font-serif text-gold" style={{ fontWeight: 800 }}>{res.id}</span>
                       <span style={{ fontSize: '0.85rem', padding: '3px 10px', borderRadius: '12px', backgroundColor: res.status === 'confirmée' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(234, 179, 8, 0.15)', color: res.status === 'confirmée' ? '#22c55e' : '#eab308', fontWeight: 700 }}>
-                        {res.status.toUpperCase()}
+                        {getResStatusLabel(res.status)}
                       </span>
                       {within24h && (
                         <span style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '12px', backgroundColor: 'rgba(250, 204, 21, 0.15)', color: '#facc15', fontWeight: 700 }}>
@@ -778,31 +794,26 @@ export const AdminPage = () => {
                     </div>
                     <h3 style={{ fontSize: '1.15rem', color: '#fff', marginBottom: '4px' }}>{res.braidTitle} (${res.price})</h3>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      📅 Date: <strong>{res.date} à {res.time}</strong> | Client: <strong>{res.clientName}</strong> ({res.clientPhone}) | Paiement: <strong>{res.paymentMethod.toUpperCase()}</strong>
+                      📅 {t('admin_res_date')} <strong>{res.date} {t('admin_res_at')} {res.time}</strong> | {t('admin_res_client')} <strong>{res.clientName}</strong> ({res.clientPhone}) | {t('admin_res_payment')} <strong>{res.paymentMethod.toUpperCase()}</strong>
                     </div>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
                     {!isCancelled && (
-                      reminderSent ? (
-                        <span style={{ fontSize: '0.78rem', color: '#22c55e', fontWeight: 700 }}>{t('admin_reminder_sent_badge')}</span>
-                      ) : (
-                        <button onClick={() => handleSendReservationReminder(res)} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(212, 175, 55, 0.15)', color: 'var(--gold-light)', border: '1px solid rgba(212, 175, 55, 0.4)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Bell size={15} />
-                          <span>{t('admin_reminder_24h_btn')}</span>
-                        </button>
-                      )
+                      <span style={{ fontSize: '0.78rem', color: reminderSent ? '#22c55e' : 'var(--gold-light)', fontWeight: 700 }}>
+                        {reminderSent ? t('admin_reminder_sent_badge') : t('admin_reminder_auto_note')}
+                      </span>
                     )}
 
                     {res.status === 'en_attente' && (
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button onClick={() => handleStatusChange(res.id, 'confirmée')} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.3)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <CheckCircle2 size={15} />
-                          <span>Confirmer</span>
+                          <span>{t('admin_btn_confirm')}</span>
                         </button>
                         <button onClick={() => handleStatusChange(res.id, 'annulée')} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <XCircle size={15} />
-                          <span>Annuler</span>
+                          <span>{t('admin_btn_cancel')}</span>
                         </button>
                       </div>
                     )}
@@ -817,10 +828,10 @@ export const AdminPage = () => {
         {activeTab === 'products' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h3 className="font-serif text-gold" style={{ fontSize: '1.5rem' }}>Stock & Inventaire du Salon</h3>
+              <h3 className="font-serif text-gold" style={{ fontSize: '1.5rem' }}>{t('admin_products_title')}</h3>
               <button onClick={() => setIsAddModalOpen(true)} className="bg-gold-gradient" style={{ padding: '10px 20px', borderRadius: '30px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
                 <Plus size={16} />
-                <span>Ajouter un Produit</span>
+                <span>{t('admin_add_product')}</span>
               </button>
             </div>
 
@@ -832,7 +843,7 @@ export const AdminPage = () => {
                     <div style={{ height: '160px', borderRadius: '8px', overflow: 'hidden', marginBottom: '14px', position: 'relative' }}>
                       <img src={item.image} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       <span style={{ position: 'absolute', top: '10px', right: '10px', backgroundColor: item.stock > 4 ? '#22c55e' : item.stock > 0 ? '#eab308' : '#ef4444', color: '#000', padding: '3px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 800 }}>
-                        {item.stock > 0 ? `Stock: ${item.stock}` : 'Rupture'}
+                        {item.stock > 0 ? `${t('admin_stock_badge')}: ${item.stock}` : t('admin_stock_out')}
                       </span>
                     </div>
 
@@ -841,7 +852,7 @@ export const AdminPage = () => {
 
                     <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(212,175,55,0.15)', paddingTop: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Stock :</span>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('admin_stock_label')}</span>
                         <button onClick={() => handleStockChange(item.id, item.stock, -1, item.itemType)} style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff' }}>-</button>
                         <span style={{ fontWeight: 800, minWidth: '20px', textAlign: 'center' }}>{item.stock}</span>
                         <button onClick={() => handleStockChange(item.id, item.stock, 1, item.itemType)} style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff' }}>+</button>
@@ -872,7 +883,7 @@ export const AdminPage = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                       <span className="font-serif text-gold" style={{ fontWeight: 800 }}>{ord.id}</span>
                       <span style={{ fontSize: '0.78rem', padding: '3px 10px', borderRadius: '12px', backgroundColor: statusBg, color: statusColor, fontWeight: 700 }}>
-                        {ord.status.replace('_', ' ').toUpperCase()}
+                        {getOrderStatusLabel(ord.status)}
                       </span>
                       {uncollected48h && (
                         <span style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '12px', backgroundColor: 'rgba(251, 146, 60, 0.15)', color: '#fb923c', fontWeight: 700 }}>
@@ -880,13 +891,13 @@ export const AdminPage = () => {
                         </span>
                       )}
                     </div>
-                    <span style={{ color: 'var(--gold-light)', fontWeight: 700 }}>Total: ${ord.total.toFixed(2)}</span>
+                    <span style={{ color: 'var(--gold-light)', fontWeight: 700 }}>{t('admin_orders_total')} ${ord.total.toFixed(2)}</span>
                   </div>
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                    Client: <strong>{ord.clientName}</strong> ({ord.clientPhone})
+                    {t('admin_res_client')} <strong>{ord.clientName}</strong> ({ord.clientPhone})
                   </div>
                   <div style={{ fontSize: '0.85rem', backgroundColor: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', marginBottom: '14px' }}>
-                    <strong>Articles achetés:</strong>
+                    <strong>{t('admin_orders_items_label')}</strong>
                     {ord.items.map((i, idx) => (
                       <div key={idx} style={{ marginTop: '4px' }}>• {i.name} (x{i.quantity}) - ${i.price}</div>
                     ))}
@@ -897,25 +908,20 @@ export const AdminPage = () => {
                       <>
                         <button onClick={() => handleOrderStatusChange(ord.id, 'validée')} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.3)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <CheckCircle2 size={15} />
-                          <span>Valider la commande</span>
+                          <span>{t('admin_btn_validate_order')}</span>
                         </button>
                         <button onClick={() => handleOrderStatusChange(ord.id, 'refusée')} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <XCircle size={15} />
-                          <span>Refuser</span>
+                          <span>{t('admin_btn_refuse')}</span>
                         </button>
                       </>
                     )}
 
                     {ord.status === 'validée' && (
                       <>
-                        {reminderSent ? (
-                          <span style={{ fontSize: '0.78rem', color: '#22c55e', fontWeight: 700 }}>{t('admin_reminder_sent_badge')}</span>
-                        ) : (
-                          <button onClick={() => handleSendOrderReminder(ord)} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(251, 146, 60, 0.15)', color: '#fb923c', border: '1px solid rgba(251, 146, 60, 0.4)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Bell size={15} />
-                            <span>{t('admin_reminder_48h_btn')}</span>
-                          </button>
-                        )}
+                        <span style={{ fontSize: '0.78rem', color: reminderSent ? '#22c55e' : '#fb923c', fontWeight: 700 }}>
+                          {reminderSent ? t('admin_reminder_sent_badge') : t('admin_reminder_auto_note')}
+                        </span>
                         <button onClick={() => handleMarkOrderCollected(ord.id)} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.35)', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <Package size={15} />
                           <span>{t('admin_status_collected')}</span>
@@ -932,21 +938,21 @@ export const AdminPage = () => {
         {/* TAB 4: OWNER ADMIN PROFILE */}
         {activeTab === 'profile' && adminAccount && (
           <div className="glass-card" style={{ maxWidth: '600px', padding: '30px' }}>
-            <h3 className="font-serif text-gold" style={{ fontSize: '1.6rem', marginBottom: '20px' }}>Fiche Administrateur du Salon</h3>
+            <h3 className="font-serif text-gold" style={{ fontSize: '1.6rem', marginBottom: '20px' }}>{t('admin_profile_title')}</h3>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '0.95rem' }}>
               <div style={{ borderBottom: '1px solid rgba(212,175,55,0.15)', paddingBottom: '10px' }}>
-                <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Nom & Prénom Propriétaire</span>
+                <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>{t('admin_profile_owner')}</span>
                 <strong>{adminAccount.firstName} {adminAccount.lastName}</strong>
               </div>
 
               <div style={{ borderBottom: '1px solid rgba(212,175,55,0.15)', paddingBottom: '10px' }}>
-                <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Adresse E-mail</span>
+                <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>{t('admin_profile_email')}</span>
                 <strong>{adminAccount.email}</strong>
               </div>
 
               <div style={{ borderBottom: '1px solid rgba(212,175,55,0.15)', paddingBottom: '10px' }}>
-                <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>Numéro de Téléphone</span>
+                <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.8rem' }}>{t('admin_profile_phone')}</span>
                 <strong>{adminAccount.phone}</strong>
               </div>
             </div>
@@ -957,45 +963,45 @@ export const AdminPage = () => {
         {isAddModalOpen && (
           <div style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
             <div className="glass-card" style={{ maxWidth: '500px', width: '100%', padding: '28px' }}>
-              <h3 className="font-serif text-gold" style={{ fontSize: '1.6rem', marginBottom: '20px' }}>Ajouter un Produit ou Parfum</h3>
+              <h3 className="font-serif text-gold" style={{ fontSize: '1.6rem', marginBottom: '20px' }}>{t('admin_modal_title')}</h3>
               <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div>
-                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Nom du produit</label>
-                  <input type="text" value={newTitle} onChange={e => setNewTitle(e.target.value)} required placeholder="Ex: Huile de Chébé" style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_name')}</label>
+                  <input type="text" value={newTitle} onChange={e => setNewTitle(e.target.value)} required placeholder={t('admin_modal_name_ph')} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Catégorie</label>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_category')}</label>
                     <select value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: '#141219', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }}>
-                      <option value="care">Soins Cheveux & Corps</option>
-                      <option value="perfume">Parfumerie</option>
+                      <option value="care">{t('admin_modal_cat_care')}</option>
+                      <option value="perfume">{t('admin_modal_cat_perfume')}</option>
                     </select>
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Prix ($)</label>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_price')}</label>
                     <input type="number" step="0.01" value={newPrice} onChange={e => setNewPrice(e.target.value)} required placeholder="25.00" style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
                   </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Stock initial</label>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_stock')}</label>
                     <input type="number" value={newStock} onChange={e => setNewStock(e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>URL de l'image</label>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_image')}</label>
                     <input type="text" value={newImage} onChange={e => setNewImage(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
                   </div>
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Description</label>
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_desc')}</label>
                   <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} rows={2} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                  <button type="button" onClick={() => setIsAddModalOpen(false)} style={{ flex: 1, padding: '10px', borderRadius: '20px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#fff' }}>Annuler</button>
-                  <button type="submit" className="bg-gold-gradient" style={{ flex: 1, padding: '10px', borderRadius: '20px' }}>Enregistrer</button>
+                  <button type="button" onClick={() => setIsAddModalOpen(false)} style={{ flex: 1, padding: '10px', borderRadius: '20px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#fff' }}>{t('admin_modal_cancel')}</button>
+                  <button type="submit" className="bg-gold-gradient" style={{ flex: 1, padding: '10px', borderRadius: '20px' }}>{t('admin_modal_save')}</button>
                 </div>
               </form>
             </div>

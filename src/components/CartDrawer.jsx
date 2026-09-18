@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { useClientAuth } from '../context/ClientAuthContext';
 import { dbAddOrder } from '../services/db';
 import { trackMyReference } from '../services/notifications';
 import { X, Trash2, ShoppingBag, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 export const CartDrawer = ({ isOpen, onClose, cartItems, onUpdateQuantity, onRemoveItem, onClearCart, navigateTo }) => {
   const { t } = useLanguage();
+  const { clientUser, authLoading, authEnabled, requestAuth } = useClientAuth();
   const [isOrdered, setIsOrdered] = useState(false);
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
@@ -15,30 +17,48 @@ export const CartDrawer = ({ isOpen, onClose, cartItems, onUpdateQuantity, onRem
 
   const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
+  // Prefill contact info from the connected client account.
+  useEffect(() => {
+    if (!clientUser) return;
+    setClientName(prev => prev || clientUser.fullName || clientUser.firstName || '');
+    setClientPhone(prev => prev || clientUser.phone || '');
+  }, [clientUser]);
+
   const handleCheckout = (e) => {
     e.preventDefault();
     if (cartItems.length === 0) return;
 
-    const savedOrder = dbAddOrder({
-      clientName: clientName || 'Client anonyme',
-      clientPhone: clientPhone || 'N/A',
-      total,
-      items: cartItems
-    });
+    const performOrder = (profile) => {
+      const savedOrder = dbAddOrder({
+        clientName: clientName || t('cart_anon'),
+        clientPhone: clientPhone || 'N/A',
+        clientEmail: profile ? profile.email : (clientUser ? clientUser.email : ''),
+        clientUid: profile ? profile.uid : (clientUser ? clientUser.uid : undefined),
+        total,
+        items: cartItems
+      });
 
-    setOrderRef(savedOrder.id);
+      setOrderRef(savedOrder.id);
 
-    // Remember this order on this device so we can alert the client
-    // automatically (browser notification + toast) once the salon validates it.
-    trackMyReference({
-      referenceId: savedOrder.id,
-      type: 'order',
-      label: `Commande de ${cartItems.length} article(s)`
-    });
+      // Remember this order on this device so we can alert the client
+      // automatically (browser notification + toast) once the salon validates it.
+      trackMyReference({
+        referenceId: savedOrder.id,
+        type: 'order',
+        label: `${t('cart_order_of')} ${cartItems.length} ${t('cart_article_s')}`
+      });
 
-    setIsOrdered(true);
-    onClearCart();
-    window.dispatchEvent(new Event('storage'));
+      setIsOrdered(true);
+      onClearCart();
+      window.dispatchEvent(new Event('storage'));
+    };
+
+    // Require a client account before confirming (distinct from the owner account).
+    if (authEnabled && !authLoading && !clientUser) {
+      requestAuth(performOrder);
+    } else {
+      performOrder(clientUser);
+    }
   };
 
   const handleCloseSuccess = () => {
@@ -150,6 +170,12 @@ export const CartDrawer = ({ isOpen, onClose, cartItems, onUpdateQuantity, onRem
                     <span>{t('cart_checkout_btn')}</span>
                     <ArrowRight size={18} />
                   </button>
+
+                  {authEnabled && !authLoading && !clientUser && (
+                    <div style={{ padding: '11px 14px', borderRadius: '10px', backgroundColor: 'rgba(212, 175, 55, 0.08)', border: '1px dashed rgba(212, 175, 55, 0.35)', fontSize: '0.8rem', color: 'var(--gold-light)', textAlign: 'center' }}>
+                      🔐 {t('client_auth_required_note')}
+                    </div>
+                  )}
                 </form>
               </>
             )}

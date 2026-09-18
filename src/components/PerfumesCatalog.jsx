@@ -133,7 +133,7 @@ export const PerfumesCatalog = ({ onAddToCart }) => {
                   </div>
 
                   <div style={{ position: 'absolute', top: '14px', right: '14px', backgroundColor: 'rgba(11, 10, 14, 0.8)', backdropFilter: 'blur(8px)', color: 'var(--gold-light)', fontSize: '0.75rem', fontWeight: 700, padding: '4px 10px', borderRadius: '16px', border: '1px solid rgba(212, 175, 55, 0.3)' }}>
-                    {perfume.volume}
+                    {language === 'fr' ? (perfume.volume_fr || perfume.volume) : (perfume.volume_en || perfume.volume)}
                   </div>
                 </div>
 

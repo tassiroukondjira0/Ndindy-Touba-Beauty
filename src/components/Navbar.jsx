@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { useClientAuth } from '../context/ClientAuthContext';
 import { hasAdminAccount, getCurrentAdminSession } from '../services/auth';
-import { ShoppingBag, Calendar, Globe, Sparkles, Phone } from 'lucide-react';
+import { ShoppingBag, Calendar, Globe, Sparkles, Phone, User, LogOut } from 'lucide-react';
 
 export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navigateTo }) => {
   const { language, toggleLanguage, t } = useLanguage();
+  const { clientUser, authEnabled, authLoading, openAuth, signOutClient } = useClientAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
@@ -208,6 +210,46 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
               </span>
             )}
           </button>
+
+          {/* Client Account */}
+          {authEnabled && !authLoading && (
+            clientUser ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 6px 5px 14px', borderRadius: '22px', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(212, 175, 55, 0.25)' }}>
+                <User size={15} color="var(--gold-primary)" />
+                <span style={{ fontSize: '0.8rem', fontWeight: 600, maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {clientUser.fullName || clientUser.firstName || t('client_account_menu')}
+                </span>
+                <button
+                  onClick={signOutClient}
+                  title={t('client_btn_logout')}
+                  style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'rgba(255, 255, 255, 0.08)', border: 'none', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                >
+                  <LogOut size={14} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => openAuth('login')}
+                title={t('client_login_btn_nav')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  padding: '8px 14px',
+                  borderRadius: '22px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                <User size={15} />
+                <span>{t('client_login_btn_nav')}</span>
+              </button>
+            )
+          )}
 
           {/* Book Appointment CTA */}
           <button

@@ -583,7 +583,7 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
                         </div>
                         {res.paymentMethod && (
                           <div style={{ fontSize: '0.8rem', color: 'var(--gold-light)', marginTop: '4px' }}>
-                            💳 Paiement : {res.paymentMethod === 'cash' ? 'Cash sur place' : res.paymentMethod.toUpperCase()}
+                            💳 {t('tracking_payment_label')} : {res.paymentMethod === 'cash' ? t('tracking_cash_on_site') : res.paymentMethod.toUpperCase()}
                           </div>
                         )}
                       </div>
@@ -626,7 +626,7 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
 
                       <button
                         onClick={handlePrint}
-                        title="Imprimer cette fiche"
+                        title={t('tracking_print_sheet')}
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
