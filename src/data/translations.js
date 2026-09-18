@@ -29,6 +29,7 @@ export const translations = {
     common_out_of_stock: "Rupture de Stock",
     common_or: "ou",
     common_all: "Tous",
+    common_cancel: "Annuler",
 
     // Statuses
     status_confirmed: "Confirmée & Validée",
@@ -233,6 +234,19 @@ export const translations = {
     review_tag: "Satisfaction Garantie",
     review_title: "Avis de nos Client(e)s",
     review_subtitle: "Découvrez ce que disent nos clients fidèles sur nos tresses et produits.",
+    review_write_btn: "Laisser un avis",
+    review_login_required: "Connectez-vous pour laisser votre avis",
+    review_empty: "Aucun avis pour le moment. Soyez le premier à partager votre expérience !",
+    review_verified: "Client vérifié",
+    review_form_title: "Partagez votre expérience",
+    review_form_title_edit: "Modifier mon avis",
+    review_form_submit_edit_trigger: "Modifier mon avis",
+    review_form_rating: "Votre note",
+    review_form_comment: "Votre avis",
+    review_form_comment_ph: "Décrivez votre expérience chez TOUBA NDINDY — coiffure, produits, accueil...",
+    review_form_submit: "Publier mon avis",
+    review_form_submit_edit: "Mettre à jour mon avis",
+    review_form_success: "Merci ! Votre avis a bien été publié.",
 
     // Footer
     footer_desc: "TOUBA NDINDY Professional African Hair Braiding - Votre salon de coiffure africain de référence à Baltimore, MD.",
@@ -450,6 +464,7 @@ export const translations = {
     common_out_of_stock: "Out of Stock",
     common_or: "or",
     common_all: "All",
+    common_cancel: "Cancel",
 
     // Statuses
     status_confirmed: "Confirmed & Validated",
@@ -654,6 +669,19 @@ export const translations = {
     review_tag: "Guaranteed Satisfaction",
     review_title: "Customer Reviews",
     review_subtitle: "See what our loyal clients say about our braids and luxury products.",
+    review_write_btn: "Leave a review",
+    review_login_required: "Sign in to leave a review",
+    review_empty: "No reviews yet. Be the first to share your experience!",
+    review_verified: "Verified client",
+    review_form_title: "Share your experience",
+    review_form_title_edit: "Edit my review",
+    review_form_submit_edit_trigger: "Edit my review",
+    review_form_rating: "Your rating",
+    review_form_comment: "Your review",
+    review_form_comment_ph: "Describe your experience at TOUBA NDINDY — hairstyle, products, service...",
+    review_form_submit: "Publish my review",
+    review_form_submit_edit: "Update my review",
+    review_form_success: "Thank you! Your review has been published.",
 
     // Footer
     footer_desc: "TOUBA NDINDY Professional African Hair Braiding - Your premier African braiding & beauty salon in Baltimore, MD.",

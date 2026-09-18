@@ -689,3 +689,39 @@ export const subscribeToCloudNotifications = (onUpdate, onError) => {
     return () => {};
   }
 };
+
+// --- CLOUD FIRESTORE HELPERS: CLIENT REVIEWS (TESTIMONIALS) ---
+
+export const cloudSaveReview = async (review) => {
+  if (!isFirebaseConfigured() || !db) return null;
+  try {
+    const docRef = doc(db, 'reviews', review.id);
+    const dataToSave = { ...review, updatedAt: serverTimestamp() };
+    await setDoc(docRef, dataToSave, { merge: true });
+    return dataToSave;
+  } catch (err) {
+    console.error(`Error saving review ${review.id} to cloud:`, err);
+    return null;
+  }
+};
+
+export const subscribeToCloudReviews = (onUpdate, onError) => {
+  if (!isFirebaseConfigured() || !db) return () => {};
+  try {
+    const q = collection(db, 'reviews');
+    return onSnapshot(q, (snapshot) => {
+      const items = [];
+      snapshot.forEach(d => {
+        items.push({ ...d.data(), id: d.id });
+      });
+      items.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      onUpdate(items);
+    }, (err) => {
+      console.warn("Firestore reviews subscription warning:", err);
+      if (onError) onError(err);
+    });
+  } catch (err) {
+    console.warn("Error establishing reviews subscription:", err);
+    return () => {};
+  }
+};

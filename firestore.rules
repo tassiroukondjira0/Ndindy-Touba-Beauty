@@ -22,6 +22,9 @@ service cloud.firestore {
     match /braids/{docId} {
       allow read, write: if true;
     }
+    match /reviews/{docId} {
+      allow read, write: if true;
+    }
     // Owner account (single document kept in 'admins'/'users').
     match /admins/{docId} {
       allow read, write: if true;

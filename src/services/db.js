@@ -20,13 +20,15 @@ import {
   cloudGetAll,
   cloudSetItems,
   cloudSaveBraid,
-  cloudDeleteBraid
+  cloudDeleteBraid,
+  cloudSaveReview
 } from './firebase';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'touba_ndindy_products',
   PERFUMES: 'touba_ndindy_perfumes',
   BRAIDS: 'touba_ndindy_braids',
+  REVIEWS: 'touba_ndindy_reviews',
   RESERVATIONS: 'touba_ndindy_reservations',
   ORDERS: 'touba_ndindy_orders'
 };
@@ -58,6 +60,9 @@ export const initDB = () => {
   }
   if (!localStorage.getItem(STORAGE_KEYS.BRAIDS)) {
     localStorage.setItem(STORAGE_KEYS.BRAIDS, JSON.stringify(braidsData));
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.REVIEWS)) {
+    localStorage.setItem(STORAGE_KEYS.REVIEWS, JSON.stringify([]));
   }
   if (!localStorage.getItem(STORAGE_KEYS.RESERVATIONS)) {
     localStorage.setItem(STORAGE_KEYS.RESERVATIONS, JSON.stringify([]));
@@ -128,11 +133,13 @@ const hydrateFromCloud = async () => {
       localStorage.setItem(CLOUD_CATALOG_SEED_FLAG, 'done');
     }
 
-    // Operational records (reservations/orders): cloud wins per id, but entries
-    // that only exist locally are preserved so nothing is ever lost.
+    // Operational records (reservations/orders) and client reviews: cloud wins
+    // per id, but entries that only exist locally are preserved so nothing is
+    // ever lost.
     const ops = [
       { col: 'reservations', key: STORAGE_KEYS.RESERVATIONS },
-      { col: 'orders', key: STORAGE_KEYS.ORDERS }
+      { col: 'orders', key: STORAGE_KEYS.ORDERS },
+      { col: 'reviews', key: STORAGE_KEYS.REVIEWS }
     ];
     for (const { col, key } of ops) {
       const cloudItems = await cloudGetAll(col);
@@ -286,6 +293,45 @@ export const dbUpdatePrice = (id, newPrice, type) => {
 export const dbGetBraids = () => {
   initDB();
   return JSON.parse(localStorage.getItem(STORAGE_KEYS.BRAIDS) || '[]');
+};
+
+export const dbGetReviews = () => {
+  initDB();
+  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.REVIEWS) || '[]');
+  return list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+};
+
+// Saves (or updates) a client review. A connected client owns a single review:
+// submitting again while one already exists edits it in place.
+export const dbAddReview = (review) => {
+  initDB();
+  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.REVIEWS) || '[]');
+  const existingIdx = review.clientUid
+    ? list.findIndex(r => r.clientUid && r.clientUid === review.clientUid)
+    : -1;
+
+  let saved;
+  if (existingIdx >= 0) {
+    saved = { ...list[existingIdx], ...review, updatedAt: new Date().toISOString() };
+    list[existingIdx] = saved;
+  } else {
+    saved = {
+      ...review,
+      id: 'REV-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+      createdAt: new Date().toISOString()
+    };
+    list.unshift(saved);
+  }
+
+  localStorage.setItem(STORAGE_KEYS.REVIEWS, JSON.stringify(list));
+  window.dispatchEvent(new Event('storage'));
+
+  // Sync to Cloud Firestore so every visitor sees the review across devices.
+  if (isFirebaseConfigured()) {
+    cloudSaveReview(saved);
+  }
+
+  return saved;
 };
 
 export const dbSaveBraid = (braid) => {
