@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { ImagePicker } from '../components/ImagePicker';
 import { 
   hasAdminAccount,
   hasAdminAccountAsync,
@@ -1188,7 +1189,7 @@ export const AdminPage = () => {
 
         {/* Add Product Modal */}
         {isAddModalOpen && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
             <div className="glass-card" style={{ maxWidth: '500px', width: '100%', padding: '28px' }}>
               <h3 className="font-serif text-gold" style={{ fontSize: '1.6rem', marginBottom: '20px' }}>{t('admin_modal_title')}</h3>
               <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -1210,15 +1211,13 @@ export const AdminPage = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div>
-                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_stock')}</label>
-                    <input type="number" value={newStock} onChange={e => setNewStock(e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_image')}</label>
-                    <input type="text" value={newImage} onChange={e => setNewImage(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
-                  </div>
+                <div>
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_stock')}</label>
+                  <input type="number" value={newStock} onChange={e => setNewStock(e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+                </div>
+
+                <div>
+                  <ImagePicker label={t('admin_modal_image')} value={newImage} onChange={setNewImage} />
                 </div>
 
                 <div>
@@ -1277,8 +1276,7 @@ export const AdminPage = () => {
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_image')}</label>
-                  <input type="text" value={braidForm.image} onChange={e => setBraidField('image', e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+                  <ImagePicker label={t('admin_modal_image')} value={braidForm.image} onChange={(v) => setBraidField('image', v)} />
                 </div>
 
                 <div>
