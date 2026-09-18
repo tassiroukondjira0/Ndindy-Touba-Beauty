@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Local-first app: the browser mirrors everything in localStorage and
+    // syncs to Firestore in the background, so these collections are written
+    // by any visitor (no server). Reads are public too.
+    match /reservations/{docId} {
+      allow read, write: if true;
+    }
+    match /orders/{docId} {
+      allow read, write: if true;
+    }
+    match /notifications/{docId} {
+      allow read, write: if true;
+    }
+    match /products/{docId} {
+      allow read, write: if true;
+    }
+    match /perfumes/{docId} {
+      allow read, write: if true;
+    }
+    // Owner account (single document kept in 'admins'/'users').
+    match /admins/{docId} {
+      allow read, write: if true;
+    }
+    match /users/{docId} {
+      allow read, write: if true;
+    }
+    // Client accounts: only their authenticated owner can manage them.
+    match /clientProfiles/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

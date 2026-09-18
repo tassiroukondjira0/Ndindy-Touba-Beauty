@@ -184,6 +184,12 @@ export const getClientNotificationsForReferences = (referenceIds = []) => {
   return notifs.filter(n => referenceIds.includes(n.referenceId));
 };
 
+// All stored client notifications (used to backfill Firestore once).
+export const getAllClientNotifications = () => {
+  initNotifications();
+  return JSON.parse(localStorage.getItem(STORAGE_KEYS.CLIENT_NOTIFS) || '[]');
+};
+
 // --- BROWSER PUSH-STYLE NOTIFICATIONS (Web Notification API) ---
 export const isBrowserNotificationSupported = () => {
   return typeof window !== 'undefined' && 'Notification' in window;

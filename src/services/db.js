@@ -1,7 +1,7 @@
 import { braidsData } from '../data/braidsData';
 import { productsData } from '../data/productsData';
 import { perfumesData } from '../data/perfumesData';
-import { addAdminNotification, addClientNotification, getMyTrackedReferences, biText } from './notifications';
+import { addAdminNotification, addClientNotification, getMyTrackedReferences, getAllClientNotifications, biText } from './notifications';
 import { 
   isFirebaseConfigured, 
   cloudAddReservation, 
@@ -13,7 +13,8 @@ import {
   cloudSaveProduct,
   cloudDeleteProduct,
   cloudUpdateStock,
-  cloudDeductStockForOrder
+  cloudDeductStockForOrder,
+  cloudAddNotification
 } from './firebase';
 
 const STORAGE_KEYS = {
@@ -100,6 +101,36 @@ export const initDB = () => {
   // Auto seed products & perfumes in Firebase Firestore if configured
   if (isFirebaseConfigured()) {
     cloudSeedProductsIfEmpty(initialProducts, initialPerfumes);
+    cloudBackfillExistingData();
+  }
+};
+
+const CLOUD_BACKFILL_FLAG = 'touba_ndindy_cloud_backfill_done';
+
+// One-time migration: pushes data already stored locally (created before the
+// Firestore security rules were released) up to the cloud, without overwriting
+// anything that already exists there (setDoc merge, idempotent).
+const cloudBackfillExistingData = () => {
+  try {
+    if (localStorage.getItem(CLOUD_BACKFILL_FLAG)) return;
+
+    const run = async () => {
+      const reservations = JSON.parse(localStorage.getItem(STORAGE_KEYS.RESERVATIONS) || '[]');
+      const orders = JSON.parse(localStorage.getItem(STORAGE_KEYS.ORDERS) || '[]');
+      const notifications = getAllClientNotifications();
+
+      const jobs = [];
+      reservations.forEach(r => jobs.push(cloudAddReservation(r)));
+      orders.forEach(o => jobs.push(cloudAddOrder(o)));
+      notifications.forEach(n => jobs.push(cloudAddNotification(n)));
+
+      await Promise.all(jobs);
+      localStorage.setItem(CLOUD_BACKFILL_FLAG, 'done');
+    };
+
+    run().catch(() => {});
+  } catch {
+    // Backfill is best-effort; never break app startup because of it.
   }
 };
 
