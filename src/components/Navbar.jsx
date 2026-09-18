@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useClientAuth } from '../context/ClientAuthContext';
 import { hasAdminAccount, getCurrentAdminSession } from '../services/auth';
-import { ShoppingBag, Calendar, Globe, Sparkles, Phone, User, LogOut } from 'lucide-react';
+import { ShoppingBag, Calendar, Globe, Sparkles, User, LogOut } from 'lucide-react';
 
 export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navigateTo }) => {
   const { language, toggleLanguage, t } = useLanguage();
@@ -56,33 +56,6 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
         boxShadow: isScrolled ? '0 10px 30px rgba(0,0,0,0.5)' : 'none'
       }}
     >
-      {/* Top Banner with phone & address */}
-      <div
-        style={{
-          backgroundColor: 'rgba(212, 175, 55, 0.08)',
-          borderBottom: '1px solid rgba(212, 175, 55, 0.15)',
-          padding: '6px 24px',
-          fontSize: '0.8rem',
-          color: 'var(--text-muted)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '8px'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span>📍 306 North Eutaw Street, Baltimore MD 21201</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Phone size={12} color="var(--gold-primary)" />
-            <a href="tel:4438581400" style={{ color: 'var(--gold-primary)', fontWeight: 600 }}>443-858-1400</a>
-          </span>
-        </div>
-        <div>
-          <span style={{ color: 'var(--gold-light)' }}>💳 Cash • Cash App • Zelle</span>
-        </div>
-      </div>
-
       {/* Main Navigation */}
       <div
         style={{
