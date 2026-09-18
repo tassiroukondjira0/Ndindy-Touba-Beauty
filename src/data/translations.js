@@ -131,6 +131,13 @@ export const translations = {
     notif_widget_verify: "Veuillez vérifier votre numéro de référence.",
     notif_widget_ref_linked: "🔖 Référence liée :",
 
+    // Client notification bell button (navbar)
+    notif_bell_btn: "Voir mes notifications",
+    notif_bell_title: "Mes Notifications",
+    notif_bell_empty: "Aucune notification pour le moment.",
+    notif_bell_empty_hint: "Quand le salon mettra à jour votre réservation ou commande, vous la verrez apparaître ici.",
+    notif_bell_track_btn: "Suivre mes réservations & commandes",
+
     // Booking Modal / System
     booking_title: "Réservation de Rendez-vous",
     booking_step_1: "1. Service",
@@ -536,6 +543,13 @@ export const translations = {
     notif_widget_not_found: "No notifications found for reference",
     notif_widget_verify: "Please verify your reference number.",
     notif_widget_ref_linked: "🔖 Linked reference:",
+
+    // Client notification bell button (navbar)
+    notif_bell_btn: "View my notifications",
+    notif_bell_title: "My Notifications",
+    notif_bell_empty: "No notifications yet.",
+    notif_bell_empty_hint: "When the salon updates your booking or order, it will show up here.",
+    notif_bell_track_btn: "Track my bookings & orders",
 
     // Booking Modal / System
     booking_title: "Book an Appointment",

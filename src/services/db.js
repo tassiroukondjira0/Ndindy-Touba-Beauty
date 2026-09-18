@@ -16,7 +16,11 @@ import {
   cloudAddNotification,
   cloudDeleteReservation,
   cloudDeleteOrder,
-  cloudDeleteNotification
+  cloudDeleteNotification,
+  cloudGetAll,
+  cloudSetItems,
+  cloudSaveBraid,
+  cloudDeleteBraid
 } from './firebase';
 
 const STORAGE_KEYS = {
@@ -67,6 +71,85 @@ export const initDB = () => {
   cleanupLocalDemoData();
   purgeCloudDemoData();
   cloudBackfillExistingData();
+
+  // Cloud-first: when Firebase is available, pull its data into the local cache
+  // so the whole site renders from Firestore; localStorage remains the fallback.
+  hydrateFromCloud();
+};
+
+const CLOUD_CATALOG_SEED_FLAG = 'touba_ndindy_cloud_catalog_seeded';
+
+let hydrateStarted = false;
+
+const mergeLocalWithCloud = (localList, cloudList) => {
+  const map = new Map();
+  localList.forEach(x => map.set(x.id, x));
+  cloudList.forEach(x => map.set(x.id, x));
+  return Array.from(map.values());
+};
+
+// Loads data directly from Firestore when it is configured/reachable and
+// mirrors it into the localStorage cache. If Firebase is unavailable, every
+// getter keeps falling back to the localStorage mirror (seeded or previously
+// synced). Also seeds an empty cloud catalog once from the local mirror so
+// Firebase becomes the single source of truth across devices. Run at most once
+// per page load: initDB() is invoked from every db getter, and idempotency of
+// the merge + storage event keeps repeated HTTP reads unnecessary.
+const hydrateFromCloud = async () => {
+  if (hydrateStarted) return;
+  hydrateStarted = true;
+  try {
+    if (!isFirebaseConfigured()) return;
+
+    const changed = [];
+    const needsCatalogSeed = localStorage.getItem(CLOUD_CATALOG_SEED_FLAG) !== 'done';
+    let seededAny = false;
+
+    // Shared catalog: cloud is authoritative when it has data.
+    const catalog = [
+      { col: 'products', key: STORAGE_KEYS.PRODUCTS },
+      { col: 'perfumes', key: STORAGE_KEYS.PERFUMES },
+      { col: 'braids', key: STORAGE_KEYS.BRAIDS }
+    ];
+
+    for (const { col, key } of catalog) {
+      const cloudItems = await cloudGetAll(col);
+      const localItems = JSON.parse(localStorage.getItem(key) || '[]');
+      if (cloudItems.length > 0) {
+        localStorage.setItem(key, JSON.stringify(cloudItems));
+        changed.push(key);
+      } else if (needsCatalogSeed && localItems.length > 0) {
+        // Cloud is empty on first run with data: seed it once from local data.
+        await cloudSetItems(col, localItems);
+        seededAny = true;
+      }
+    }
+    if (seededAny) {
+      localStorage.setItem(CLOUD_CATALOG_SEED_FLAG, 'done');
+    }
+
+    // Operational records (reservations/orders): cloud wins per id, but entries
+    // that only exist locally are preserved so nothing is ever lost.
+    const ops = [
+      { col: 'reservations', key: STORAGE_KEYS.RESERVATIONS },
+      { col: 'orders', key: STORAGE_KEYS.ORDERS }
+    ];
+    for (const { col, key } of ops) {
+      const cloudItems = await cloudGetAll(col);
+      const localItems = JSON.parse(localStorage.getItem(key) || '[]');
+      const merged = mergeLocalWithCloud(localItems, cloudItems);
+      if (merged.length !== localItems.length) {
+        localStorage.setItem(key, JSON.stringify(merged));
+        changed.push(key);
+      }
+    }
+
+    if (changed.length > 0) {
+      window.dispatchEvent(new Event('storage'));
+    }
+  } catch (e) {
+    console.warn("Cloud hydration warning (keeping localStorage):", e);
+  }
 };
 
 // Remove legacy demo interaction records from this browser's localStorage.
@@ -216,6 +299,9 @@ export const dbSaveBraid = (braid) => {
   }
   localStorage.setItem(STORAGE_KEYS.BRAIDS, JSON.stringify(items));
   window.dispatchEvent(new Event('storage'));
+  if (isFirebaseConfigured()) {
+    cloudSaveBraid(items[existingIdx >= 0 ? existingIdx : 0]);
+  }
   return items;
 };
 
@@ -225,6 +311,9 @@ export const dbDeleteBraid = (id) => {
   const filtered = items.filter(i => i.id !== id);
   localStorage.setItem(STORAGE_KEYS.BRAIDS, JSON.stringify(filtered));
   window.dispatchEvent(new Event('storage'));
+  if (isFirebaseConfigured()) {
+    cloudDeleteBraid(id);
+  }
   return filtered;
 };
 
@@ -302,24 +391,34 @@ export const dbAddReservation = (reservation) => {
   return newRes;
 };
 
-export const dbUpdateReservationStatus = (id, status) => {
+export const dbUpdateReservationStatus = (id, status, fallbackRes = null) => {
   initDB();
   const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.RESERVATIONS) || '[]');
   let targetRes = null;
+  let found = false;
 
   const updated = list.map(r => {
     if (r.id === id) {
+      found = true;
       targetRes = { ...r, status };
       return targetRes;
     }
     return r;
   });
 
+  // The reservation may only exist in Firestore (booked from another device and
+  // displayed via the cloud subscription). Persist it locally so the status
+  // change sticks even before the cloud round-trip comes back.
+  if (!found && fallbackRes) {
+    targetRes = { ...fallbackRes, status, updatedAt: new Date().toISOString() };
+    updated.unshift(targetRes);
+  }
+
   localStorage.setItem(STORAGE_KEYS.RESERVATIONS, JSON.stringify(updated));
 
   if (targetRes) {
     const statusTextFr = status === 'confirmée' ? 'VALIDÉE et CONFIRMÉE' : status === 'annulée' ? 'ANNULÉE' : 'MISE À JOUR';
-    const statusTextEn = status === 'confirmed' ? 'VALIDATED and CONFIRMED' : status === 'cancelled' ? 'CANCELLED' : 'UPDATED';
+    const statusTextEn = status === 'confirmée' ? 'VALIDATED and CONFIRMED' : status === 'annulée' ? 'CANCELLED' : 'UPDATED';
     addClientNotification({
       referenceId: targetRes.id,
       recipientPhone: targetRes.clientPhone,
@@ -333,11 +432,12 @@ export const dbUpdateReservationStatus = (id, status) => {
         `Hello ${targetRes.clientName}, your booking (${targetRes.braidTitle} on ${targetRes.date} at ${targetRes.time}) is now ${statusTextEn} by TOUBA NDINDY salon.`
       )
     });
+  }
 
-    // Sync to Cloud Firebase in background if configured
-    if (isFirebaseConfigured()) {
-      cloudUpdateReservationStatus(id, status);
-    }
+  // Always push the new status to Firestore, whether or not this browser had the
+  // record locally — the reservation was likely booked from the client's device.
+  if (isFirebaseConfigured()) {
+    cloudUpdateReservationStatus(id, status);
   }
 
   return updated;
@@ -385,18 +485,27 @@ export const dbAddOrder = (orderData) => {
   return newOrder;
 };
 
-export const dbUpdateOrderStatus = (id, status) => {
+export const dbUpdateOrderStatus = (id, status, fallbackOrder = null) => {
   initDB();
   const orders = JSON.parse(localStorage.getItem(STORAGE_KEYS.ORDERS) || '[]');
   let targetOrder = null;
+  let found = false;
 
   const updated = orders.map(o => {
     if (o.id === id) {
+      found = true;
       targetOrder = { ...o, status };
       return targetOrder;
     }
     return o;
   });
+
+  // The order may only exist in Firestore (placed from another device and shown
+  // via the cloud subscription) — persist it locally so the change sticks.
+  if (!found && fallbackOrder) {
+    targetOrder = { ...fallbackOrder, status, updatedAt: new Date().toISOString() };
+    updated.unshift(targetOrder);
+  }
 
   localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(updated));
 
@@ -438,10 +547,12 @@ export const dbUpdateOrderStatus = (id, status) => {
         )
       });
     }
+  }
 
-    if (isFirebaseConfigured()) {
-      cloudUpdateOrderStatus(id, status);
-    }
+  // Always push the new status to Firestore, whether or not this browser had the
+  // record locally — the order was likely placed from the client's device.
+  if (isFirebaseConfigured()) {
+    cloudUpdateOrderStatus(id, status);
   }
 
   return updated;

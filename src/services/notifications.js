@@ -180,6 +180,29 @@ export const getClientNotificationsForReferences = (referenceIds = []) => {
   return notifs.filter(n => referenceIds.includes(n.referenceId));
 };
 
+// Number of unseen client notifications for the references tracked on this device —
+// powers the unread badge on the client notification bell button.
+export const getUnreadMyClientNotifCount = () => {
+  const myRefs = getMyTrackedReferences();
+  if (myRefs.length === 0) return 0;
+  const refIds = myRefs.map(r => r.referenceId);
+  const notifs = getClientNotificationsForReferences(refIds);
+  const seen = new Set(getSeenClientNotifIds());
+  return notifs.filter(n => !seen.has(n.id)).length;
+};
+
+// Marks every notification for the references tracked on this device as seen,
+// so the bell badge clears once the client has opened the panel.
+export const markMyClientNotifsAsRead = () => {
+  const myRefs = getMyTrackedReferences();
+  if (myRefs.length === 0) return;
+  const refIds = myRefs.map(r => r.referenceId);
+  const notifs = getClientNotificationsForReferences(refIds);
+  if (notifs.length > 0) {
+    markClientNotifsSeen(notifs.map(n => n.id));
+  }
+};
+
 // All stored client notifications (used to backfill Firestore once).
 export const getAllClientNotifications = () => {
   initNotifications();

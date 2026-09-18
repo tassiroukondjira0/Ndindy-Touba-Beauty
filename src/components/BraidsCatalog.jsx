@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { dbGetBraids } from '../services/db';
+import { isFirebaseConfigured, subscribeToCloudBraids } from '../services/firebase';
 import { Clock, Calendar, Check, Sparkles, Filter } from 'lucide-react';
 
 export const BraidsCatalog = ({ onSelectBraidForBooking }) => {
@@ -11,7 +12,20 @@ export const BraidsCatalog = ({ onSelectBraidForBooking }) => {
   useEffect(() => {
     const refresh = () => setBraids(dbGetBraids());
     window.addEventListener('storage', refresh);
-    return () => window.removeEventListener('storage', refresh);
+
+    let unsub = () => {};
+    if (isFirebaseConfigured()) {
+      unsub = subscribeToCloudBraids((cloudBraids) => {
+        if (cloudBraids && cloudBraids.length > 0) {
+          setBraids(cloudBraids);
+        }
+      });
+    }
+
+    return () => {
+      if (unsub) unsub();
+      window.removeEventListener('storage', refresh);
+    };
   }, []);
 
   const categories = [

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useClientAuth } from '../context/ClientAuthContext';
 import { hasAdminAccount, getCurrentAdminSession } from '../services/auth';
+import { ClientNotificationBell } from './ClientNotificationBell';
 import { ShoppingBag, Calendar, Globe, Sparkles, User, LogOut } from 'lucide-react';
 
 export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navigateTo }) => {
@@ -143,6 +144,9 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
             <Globe size={15} />
             <span>{language === 'fr' ? '🇫🇷 FR' : '🇬🇧 EN'}</span>
           </button>
+
+          {/* Client Notification Bell (only for clients, not for the owner's dashboard) */}
+          {!isAdminLoggedIn && <ClientNotificationBell navigateTo={navigateTo} />}
 
           {/* Cart Icon */}
           <button

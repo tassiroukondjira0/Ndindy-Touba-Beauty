@@ -75,6 +75,16 @@ import {
   Edit
 } from 'lucide-react';
 
+// Merge two id-keyed lists, keeping every record and giving latest-in-browser
+// entries precedence. Used to combine the cloud-fed live view with the local
+// store without blanking the dashboard on every refresh.
+const mergeById = (prev, fresh) => {
+  const map = new Map();
+  (prev || []).forEach(x => map.set(x.id, x));
+  (fresh || []).forEach(x => map.set(x.id, x));
+  return Array.from(map.values());
+};
+
 // Inline price editor used in the admin dashboard for products, perfumes and braids.
 const PriceEditor = ({ price, onSave }) => {
   const [editing, setEditing] = useState(false);
@@ -226,8 +236,11 @@ export const AdminPage = () => {
   }, []);
 
   const loadDashboardData = () => {
-    setReservations(dbGetReservations());
-    setOrders(dbGetOrders());
+    // Merge instead of replacing so reservations/orders that only exist in
+    // Firestore (booked from the client's device and streamed here via the
+    // cloud subscription) are never wiped by a local-only refresh.
+    setReservations(prev => mergeById(prev, dbGetReservations()));
+    setOrders(prev => mergeById(prev, dbGetOrders()));
     setProducts(dbGetProducts());
     setPerfumes(dbGetPerfumes());
     setBraids(dbGetBraids());
@@ -373,15 +386,18 @@ export const AdminPage = () => {
   };
 
   const handleStatusChange = (id, newStatus) => {
-    setReservations(dbUpdateReservationStatus(id, newStatus));
+    const fallback = reservations.find(r => r.id === id);
+    setReservations(prev => mergeById(prev, dbUpdateReservationStatus(id, newStatus, fallback)));
   };
 
   const handleOrderStatusChange = (id, newStatus) => {
-    setOrders(dbUpdateOrderStatus(id, newStatus));
+    const fallback = orders.find(o => o.id === id);
+    setOrders(prev => mergeById(prev, dbUpdateOrderStatus(id, newStatus, fallback)));
   };
 
   const handleMarkOrderCollected = (id) => {
-    setOrders(dbUpdateOrderStatus(id, 'récupérée'));
+    const fallback = orders.find(o => o.id === id);
+    setOrders(prev => mergeById(prev, dbUpdateOrderStatus(id, 'récupérée', fallback)));
     loadDashboardData();
   };
 

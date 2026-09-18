@@ -156,6 +156,36 @@ export const cloudUpdateOrderStatus = async (id, status) => {
 
 // --- CLOUD FIRESTORE HELPERS: PRODUCTS & PERFUMES ---
 
+// Generic cloud reader: returns every document of a collection (with id).
+// Used to hydrate the localStorage mirror from Firebase on startup.
+export const cloudGetAll = async (colName) => {
+  if (!isFirebaseConfigured() || !db) return [];
+  try {
+    const snap = await getDocs(collection(db, colName));
+    const items = [];
+    snap.forEach(d => items.push({ ...d.data(), id: d.id }));
+    return items;
+  } catch (err) {
+    console.warn(`Error reading ${colName} from cloud:`, err);
+    return [];
+  }
+};
+
+// Generic cloud writer: (re)writes a batch of items into a collection with
+// merge, preserving their ids. Used to seed an empty cloud collection from the
+// local mirror so Firebase becomes the source of truth.
+export const cloudSetItems = async (colName, items = []) => {
+  if (!isFirebaseConfigured() || !db) return;
+  try {
+    await Promise.all(items.map(item => {
+      const id = item.id || ('item-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
+      return setDoc(doc(db, colName, id), { ...item, id, updatedAt: serverTimestamp() }, { merge: true });
+    }));
+  } catch (err) {
+    console.warn(`Error seeding ${colName} to cloud:`, err);
+  }
+};
+
 /**
  * Automatically seeds initial products and perfumes to Firestore if collections are empty.
  */
@@ -218,6 +248,40 @@ export const cloudDeleteProduct = async (id, type) => {
   }
 };
 
+// --- CLOUD FIRESTORE HELPERS: BRAIDS ---
+
+export const cloudGetBraids = async () => {
+  return cloudGetAll('braids');
+};
+
+export const cloudSaveBraid = async (braid) => {
+  if (!isFirebaseConfigured() || !db) return null;
+  try {
+    const docRef = doc(db, 'braids', braid.id);
+    const dataToSave = {
+      ...braid,
+      updatedAt: serverTimestamp()
+    };
+    await setDoc(docRef, dataToSave, { merge: true });
+    return dataToSave;
+  } catch (err) {
+    console.error(`Error saving braid ${braid.id} to cloud:`, err);
+    return null;
+  }
+};
+
+export const cloudDeleteBraid = async (id) => {
+  if (!isFirebaseConfigured() || !db) return false;
+  try {
+    const docRef = doc(db, 'braids', id);
+    await deleteDoc(docRef);
+    return true;
+  } catch (err) {
+    console.error(`Error deleting braid ${id} from cloud:`, err);
+    return false;
+  }
+};
+
 export const cloudUpdateStock = async (id, newStock, type) => {
   if (!isFirebaseConfigured() || !db) return false;
   const colName = type === 'perfume' ? 'perfumes' : 'products';
@@ -269,6 +333,27 @@ export const subscribeToCloudProducts = (onUpdate, onError) => {
     });
   } catch (err) {
     console.warn("Error establishing products subscription:", err);
+    return () => {};
+  }
+};
+
+// Real-time live listener for Braids
+export const subscribeToCloudBraids = (onUpdate, onError) => {
+  if (!isFirebaseConfigured() || !db) return () => {};
+  try {
+    const q = collection(db, 'braids');
+    return onSnapshot(q, (snapshot) => {
+      const items = [];
+      snapshot.forEach(d => {
+        items.push({ ...d.data(), id: d.id });
+      });
+      onUpdate(items);
+    }, (err) => {
+      console.warn("Firestore braids subscription warning:", err);
+      if (onError) onError(err);
+    });
+  } catch (err) {
+    console.warn("Error establishing braids subscription:", err);
     return () => {};
   }
 };

@@ -19,6 +19,9 @@ service cloud.firestore {
     match /perfumes/{docId} {
       allow read, write: if true;
     }
+    match /braids/{docId} {
+      allow read, write: if true;
+    }
     // Owner account (single document kept in 'admins'/'users').
     match /admins/{docId} {
       allow read, write: if true;
