@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/next';
 import { LanguageProvider } from './context/LanguageContext';
 import { ClientAuthProvider } from './context/ClientAuthContext';
 import { initDB } from './services/db';
@@ -164,6 +165,7 @@ export function App() {
         <ClientAuthModal />
       </ClientAuthProvider>
     </LanguageProvider>
+    <Analytics/>
   );
 }
 
