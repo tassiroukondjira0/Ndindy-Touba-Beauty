@@ -189,25 +189,7 @@ export const BraidsCatalog = ({ onSelectBraidForBooking }) => {
                     {desc}
                   </p>
 
-                  <div style={{ borderTop: '1px solid rgba(212, 175, 55, 0.12)', paddingTop: '16px', marginTop: 'auto' }}>
-                    <button
-                      onClick={() => onSelectBraidForBooking(item)}
-                      className="bg-gold-gradient"
-                      style={{
-                        width: '100%',
-                        padding: '12px 18px',
-                        borderRadius: '30px',
-                        fontSize: '0.9rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px'
-                      }}
-                    >
-                      <Calendar size={16} />
-                      <span>{t('braid_book_btn')}</span>
-                    </button>
-                  </div>
+                  <div style={{ borderTop: '1px solid rgba(212, 175, 55, 0.12)', paddingTop: '16px', marginTop: 'auto' }} />
                 </div>
               </div>
             );
