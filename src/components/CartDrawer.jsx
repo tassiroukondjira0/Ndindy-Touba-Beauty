@@ -13,8 +13,6 @@ export const CartDrawer = ({ isOpen, onClose, cartItems, onUpdateQuantity, onRem
   const [clientPhone, setClientPhone] = useState('');
   const [orderRef, setOrderRef] = useState('');
 
-  if (!isOpen) return null;
-
   const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   // Prefill contact info from the connected client account.
@@ -68,6 +66,8 @@ export const CartDrawer = ({ isOpen, onClose, cartItems, onUpdateQuantity, onRem
     setOrderRef('');
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div
