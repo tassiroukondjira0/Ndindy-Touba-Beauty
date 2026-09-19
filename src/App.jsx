@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LanguageProvider } from './context/LanguageContext';
 import { ClientAuthProvider } from './context/ClientAuthContext';
+import { useAdminSession } from './hooks/useAdminSession';
 import { initDB } from './services/db';
 import { Navbar } from './components/Navbar';
 import { HomePage } from './pages/HomePage';
@@ -25,12 +26,14 @@ import {
 } from './services/firebase';
 
 export const AppContent = () => {
+  const isAdminLoggedIn = useAdminSession();
   const [currentPath, setCurrentPath] = useState('/');
   const [trackingQuery, setTrackingQuery] = useState('');
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [preselectedBraid, setPreselectedBraid] = useState(null);
   const [cartItems, setCartItems] = useState([]);
+  const [adminSyncToast, setAdminSyncToast] = useState('');
 
   useEffect(() => {
     initDB();
@@ -45,8 +48,16 @@ export const AppContent = () => {
       existing.forEach(item => map.set(item.id, item));
       items.forEach(item => map.set(item.id, item));
       const merged = Array.from(map.values());
-      localStorage.setItem(key, JSON.stringify(merged));
-      window.dispatchEvent(new Event('storage'));
+      const changed = JSON.stringify(existing) !== JSON.stringify(merged);
+      if (changed) {
+        localStorage.setItem(key, JSON.stringify(merged));
+        window.dispatchEvent(new Event('storage'));
+        if (isAdminLoggedIn) {
+          setAdminSyncToast('Mise à jour détectée depuis la base de données');
+          window.clearTimeout(window.__adminSyncToastTimer);
+          window.__adminSyncToastTimer = window.setTimeout(() => setAdminSyncToast(''), 2200);
+        }
+      }
     };
 
     const unsubProducts = subscribeToCloudProducts((items) => syncCollectionToLocalStorage('touba_ndindy_products', items));
@@ -64,7 +75,7 @@ export const AppContent = () => {
       unsubReviews();
       unsubNotifications();
     };
-  }, []);
+  }, [isAdminLoggedIn]);
 
   const navigateTo = (path, extraQuery = '') => {
     if (extraQuery) {
@@ -179,7 +190,29 @@ export const AppContent = () => {
       />
 
       {/* Watches for reservation/order status updates and alerts this visitor */}
-      <ClientNotificationWatcher />
+      {!isAdminLoggedIn && <ClientNotificationWatcher />}
+
+      {isAdminLoggedIn && adminSyncToast && (
+        <div
+          style={{
+            position: 'fixed',
+            right: '24px',
+            bottom: '24px',
+            zIndex: 400,
+            background: 'rgba(212, 175, 55, 0.15)',
+            color: '#fff',
+            border: '1px solid rgba(212, 175, 55, 0.45)',
+            borderRadius: '14px',
+            padding: '12px 16px',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
+            fontSize: '0.85rem',
+            fontWeight: 700,
+            backdropFilter: 'blur(8px)'
+          }}
+        >
+          {adminSyncToast}
+        </div>
+      )}
     </div>
   );
 };
