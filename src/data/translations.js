@@ -257,7 +257,7 @@ export const translations = {
     footer_sunday: "Dimanche : SUR RENDEZ-VOUS",
     footer_contact_title: "Contact & Localisation",
     footer_rights: "Tous droits réservés.",
-    footer_made_with: "Fait avec excellence pour Salon Beauty.",
+    footer_made_with: "Fait avec excellence pour NDINDY TOUBA African Hair Braiding",
 
     // Admin Dashboard
     admin_title: "Espace d'Administration & Gestion",
@@ -692,7 +692,7 @@ export const translations = {
     footer_sunday: "Sunday: BY APPOINTMENT",
     footer_contact_title: "Contact & Location",
     footer_rights: "All rights reserved.",
-    footer_made_with: "Crafted with excellence for Salon Beauty.",
+    footer_made_with: "Crafted with excellence for NDINDY TOUBA African Hair Braiding",
 
     // Admin Dashboard
     admin_title: "Administration & Management Portal",
