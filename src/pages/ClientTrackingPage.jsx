@@ -38,6 +38,10 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
   const [searchResults, setSearchResults] = useState({ reservations: [], orders: [] });
   const [recentTracked, setRecentTracked] = useState({ reservations: [], orders: [] });
   const [hasRecent, setHasRecent] = useState(false);
+  const [receiptRef, setReceiptRef] = useState('');
+  const [receiptPhone, setReceiptPhone] = useState('');
+  const [receiptPreview, setReceiptPreview] = useState('');
+  const [receiptVerification, setReceiptVerification] = useState(null);
 
   // Load auto-tracked items on this device on mount
   const loadRecentItems = async () => {
@@ -220,6 +224,70 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
     window.print();
   };
 
+  const handleReceiptUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setReceiptPreview('');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => setReceiptPreview(String(reader.result || ''));
+
+    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    reader.readAsDataURL(file);
+  };
+
+  const handleReceiptVerification = async () => {
+    const ref = receiptRef.trim();
+    const phone = receiptPhone.trim();
+
+    if (!ref && !phone) {
+      setReceiptVerification({ ok: false, message: language === 'fr' ? 'Entrez une référence ou un numéro de téléphone.' : 'Enter a reference or phone number.' });
+      return;
+    }
+
+    try {
+      const query = ref || phone;
+      const results = await searchClientReservationsAndOrders(query);
+      const normalizedPhone = phone.replace(/\D/g, '');
+
+      const matches = [
+        ...results.reservations.filter(item => (!ref || item.id === ref) && (!phone || (item.clientPhone || '').includes(phone) || (item.clientPhone || '').replace(/\D/g, '').includes(normalizedPhone))),
+        ...results.orders.filter(item => (!ref || item.id === ref) && (!phone || (item.clientPhone || '').includes(phone) || (item.clientPhone || '').replace(/\D/g, '').includes(normalizedPhone)))
+      ];
+
+      if (matches.length > 0) {
+        const record = matches[0];
+        setReceiptVerification({
+          ok: true,
+          type: record.braidTitle ? 'reservation' : 'order',
+          message: language === 'fr'
+            ? `✅ Reçu vérifié : ${record.id} correspond bien à une ${record.braidTitle ? 'réservation' : 'commande'} enregistrée.`
+            : `✅ Receipt verified: ${record.id} matches a registered ${record.braidTitle ? 'reservation' : 'order'}.`,
+          record
+        });
+      } else {
+        setReceiptVerification({
+          ok: false,
+          message: language === 'fr'
+            ? '❌ Aucun élément ne correspond à ce reçu. Vérifiez la référence ou le numéro de téléphone.'
+            : '❌ No matching reservation or order was found for this receipt. Check the reference or phone number.'
+        });
+      }
+    } catch (err) {
+      console.error('Receipt verification error:', err);
+      setReceiptVerification({
+        ok: false,
+        message: language === 'fr' ? 'Impossible de vérifier ce reçu pour le moment.' : 'This receipt cannot be verified at the moment.'
+      });
+    }
+  };
+
   return (
     <div style={{ paddingTop: '100px', paddingBottom: '80px', minHeight: '85vh' }}>
       <div className="section-container" style={{ maxWidth: '1000px' }}>
@@ -328,6 +396,94 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
         {/* Status / Scope Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
           <div>
+
+          <div className="glass-card" style={{ padding: '24px 28px', marginBottom: '36px', border: '1px solid rgba(212, 175, 55, 0.3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+              <FileText size={20} color="var(--gold-primary)" />
+              <h3 className="font-serif text-gold" style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>
+                {language === 'fr' ? 'Vérification de reçu de confirmation' : 'Confirmation Receipt Verification'}
+              </h3>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '18px' }}>
+              <input
+                type="text"
+                value={receiptRef}
+                onChange={e => setReceiptRef(e.target.value)}
+                placeholder={language === 'fr' ? 'Référence (TN-... / CMD-...)' : 'Reference (TN-... / CMD-...)'}
+                style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }}
+              />
+              <input
+                type="tel"
+                value={receiptPhone}
+                onChange={e => setReceiptPhone(e.target.value)}
+                placeholder={language === 'fr' ? 'Téléphone du client' : 'Client phone'}
+                style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '18px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                {language === 'fr' ? 'Téléverser le reçu de confirmation' : 'Upload the confirmation receipt'}
+              </label>
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={handleReceiptUpload}
+                style={{ color: 'var(--text-muted)', width: '100%' }}
+              />
+            </div>
+
+            {receiptPreview && (
+              <div style={{ marginBottom: '18px', padding: '12px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(212,175,55,0.2)' }}>
+                {receiptPreview.toLowerCase().includes('pdf') ? (
+                  <div style={{ color: 'var(--gold-light)', fontWeight: 600 }}>{language === 'fr' ? 'Fichier PDF reçu' : 'Uploaded PDF receipt'}</div>
+                ) : (
+                  <img src={receiptPreview} alt="Receipt preview" style={{ maxWidth: '100%', maxHeight: '240px', borderRadius: '10px', objectFit: 'contain' }} />
+                )}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={handleReceiptVerification}
+                className="bg-gold-gradient"
+                style={{ padding: '12px 22px', borderRadius: '24px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                {language === 'fr' ? 'Vérifier le reçu' : 'Verify receipt'}
+              </button>
+              {(receiptRef || receiptPhone || receiptPreview) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReceiptRef('');
+                    setReceiptPhone('');
+                    setReceiptPreview('');
+                    setReceiptVerification(null);
+                  }}
+                  style={{ padding: '12px 18px', borderRadius: '24px', backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(212,175,55,0.25)', color: '#fff', cursor: 'pointer' }}
+                >
+                  {language === 'fr' ? 'Réinitialiser' : 'Reset'}
+                </button>
+              )}
+            </div>
+
+            {receiptVerification && (
+              <div
+                style={{
+                  marginTop: '18px',
+                  padding: '14px 16px',
+                  borderRadius: '12px',
+                  backgroundColor: receiptVerification.ok ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
+                  border: `1px solid ${receiptVerification.ok ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.35)'}`,
+                  color: receiptVerification.ok ? '#4ade80' : '#fca5a5'
+                }}
+              >
+                {receiptVerification.message}
+              </div>
+            )}
+          </div>
             {isDisplayingSearch ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <h2 className="font-serif text-gold" style={{ fontSize: '1.4rem', fontWeight: 700 }}>

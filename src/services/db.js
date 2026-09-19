@@ -384,6 +384,16 @@ export const dbAddReview = (review) => {
   localStorage.setItem(STORAGE_KEYS.REVIEWS, JSON.stringify(list));
   window.dispatchEvent(new Event('storage'));
 
+  addAdminNotification({
+    type: 'review',
+    title: biText('⭐ Nouvel Avis Client', '⭐ New Client Review'),
+    message: biText(
+      `${saved.name || 'Un client'} a laissé un avis : "${saved.comment || 'Sans commentaire'}".`,
+      `${saved.name || 'A client'} left a review: "${saved.comment || 'No comment'}".`
+    ),
+    referenceId: saved.id
+  });
+
   // Sync to Cloud Firestore so every visitor sees the review across devices.
   if (isFirebaseConfigured()) {
     cloudSaveReview(saved);

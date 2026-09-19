@@ -31,6 +31,13 @@ export const getNotifText = (notif, field, lang) => {
 
 const LEGACY_DEMO_PURGED_FLAG = 'touba_ndindy_legacy_demo_purged';
 
+// Only client-originated business events should appear in the admin inbox.
+const ALLOWED_ADMIN_NOTIFICATION_TYPES = new Set([
+  'reservation',
+  'order',
+  'review'
+]);
+
 // IDs of the demo notifications that were seeded in older versions of the app.
 // Removed permanently so every notification comes from a real site interaction.
 const LEGACY_DEMO_NOTIF_IDS = ['notif-101', 'notif-102', 'cnotif-1'];
@@ -77,6 +84,10 @@ export const getUnreadAdminNotifCount = () => {
 };
 
 export const addAdminNotification = ({ type, title, message, titleI18n, messageI18n, referenceId }) => {
+  if (!type || !ALLOWED_ADMIN_NOTIFICATION_TYPES.has(type)) {
+    return null;
+  }
+
   initNotifications();
   const notifs = JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_NOTIFS) || '[]');
   const lang = getAppLanguage();
