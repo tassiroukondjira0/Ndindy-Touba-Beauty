@@ -3,7 +3,8 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAdminSession } from '../hooks/useAdminSession';
 import { 
   searchClientReservationsAndOrders, 
-  getClientTrackedRecords 
+  getClientTrackedRecords,
+  dbAttachReceipt
 } from '../services/db';
 import { 
   Search, 
@@ -40,6 +41,7 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
   const [hasRecent, setHasRecent] = useState(false);
   const [receiptRef, setReceiptRef] = useState('');
   const [receiptPhone, setReceiptPhone] = useState('');
+  const [receiptFile, setReceiptFile] = useState(null);
   const [receiptPreview, setReceiptPreview] = useState('');
   const [receiptVerification, setReceiptVerification] = useState(null);
 
@@ -227,10 +229,12 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
   const handleReceiptUpload = (event) => {
     const file = event.target.files?.[0];
     if (!file) {
+      setReceiptFile(null);
       setReceiptPreview('');
       return;
     }
 
+    setReceiptFile(file);
     const reader = new FileReader();
     reader.onload = () => setReceiptPreview(String(reader.result || ''));
 
@@ -246,8 +250,8 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
     const ref = receiptRef.trim();
     const phone = receiptPhone.trim();
 
-    if (!ref && !phone) {
-      setReceiptVerification({ ok: false, message: language === 'fr' ? 'Entrez une référence ou un numéro de téléphone.' : 'Enter a reference or phone number.' });
+    if (!ref || !phone || !receiptFile) {
+      setReceiptVerification({ ok: false, message: language === 'fr' ? 'La référence, le téléphone et le reçu sont obligatoires.' : 'Reference, phone and receipt are required.' });
       return;
     }
 
@@ -263,13 +267,15 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
 
       if (matches.length > 0) {
         const record = matches[0];
+        const type = record.braidTitle ? 'reservation' : 'order';
+        const savedRecord = await dbAttachReceipt({ type, id: record.id, file: receiptFile, fallbackRecord: record });
         setReceiptVerification({
           ok: true,
-          type: record.braidTitle ? 'reservation' : 'order',
+          type,
           message: language === 'fr'
-            ? `✅ Reçu vérifié : ${record.id} correspond bien à une ${record.braidTitle ? 'réservation' : 'commande'} enregistrée.`
-            : `✅ Receipt verified: ${record.id} matches a registered ${record.braidTitle ? 'reservation' : 'order'}.`,
-          record
+            ? `✅ Reçu vérifié et associé à ${record.id}.`
+            : `✅ Receipt verified and attached to ${record.id}.`,
+          record: savedRecord
         });
       } else {
         setReceiptVerification({
@@ -459,6 +465,7 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
                   onClick={() => {
                     setReceiptRef('');
                     setReceiptPhone('');
+                    setReceiptFile(null);
                     setReceiptPreview('');
                     setReceiptVerification(null);
                   }}

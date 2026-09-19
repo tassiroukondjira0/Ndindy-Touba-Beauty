@@ -6,6 +6,7 @@ import {
   isFirebaseConfigured, 
   cloudAddReservation, 
   cloudUpdateReservationStatus, 
+  cloudAttachReceipt,
   cloudAddOrder, 
   cloudUpdateOrderStatus,
   cloudSearchReservationsAndOrders,
@@ -668,6 +669,50 @@ export const dbUpdateOrderStatus = (id, status, fallbackOrder = null) => {
   }
 
   return updated;
+};
+
+export const dbAttachReceipt = async ({ type, id, file, fallbackRecord = null }) => {
+  initDB();
+  if (!file || !id || !['reservation', 'order'].includes(type)) {
+    throw new Error('Receipt, type and reference are required.');
+  }
+
+  const storageKey = type === 'reservation' ? STORAGE_KEYS.RESERVATIONS : STORAGE_KEYS.ORDERS;
+  const list = JSON.parse(localStorage.getItem(storageKey) || '[]');
+  const target = list.find(item => item.id === id) || fallbackRecord;
+  if (!target) throw new Error('Record not found.');
+
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error('Receipt file must be 2 MB or smaller.');
+  }
+
+  let receiptUrl = '';
+  if (isFirebaseConfigured()) {
+    receiptUrl = await cloudAttachReceipt(type === 'reservation' ? 'reservations' : 'orders', id, file) || '';
+  }
+
+  if (!receiptUrl) {
+    receiptUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Receipt could not be read.'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const receipt = {
+    name: file.name,
+    type: file.type || 'application/octet-stream',
+    size: file.size,
+    url: receiptUrl,
+    verifiedAt: new Date().toISOString()
+  };
+  const updated = list.some(item => item.id === id)
+    ? list.map(item => item.id === id ? { ...item, receipt } : item)
+    : [{ ...target, receipt }, ...list];
+  localStorage.setItem(storageKey, JSON.stringify(updated));
+  window.dispatchEvent(new Event('storage'));
+  return updated.find(item => item.id === id);
 };
 
 // --- CLIENT SELF-SERVICE SEARCH & TRACKING ---

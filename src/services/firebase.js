@@ -14,6 +14,7 @@ import {
   onSnapshot,
   serverTimestamp 
 } from 'firebase/firestore';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -43,12 +44,14 @@ export const isFirebaseConfigured = () => {
 let app = null;
 let db = null;
 let auth = null;
+let storage = null;
 
 if (isFirebaseConfigured()) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
     db = getFirestore(app);
     auth = getAuth(app);
+    storage = getStorage(app);
     console.log("🔥 Firebase Cloud Database & Auth Initialized Successfully!");
   } catch (err) {
     console.warn("⚠️ Firebase Initialization Warning:", err.message);
@@ -86,6 +89,29 @@ export const cloudUpdateReservationStatus = async (id, status) => {
   } catch (err) {
     console.error("Cloud status update error:", err);
     return false;
+  }
+};
+
+export const cloudAttachReceipt = async (collectionName, id, file) => {
+  if (!isFirebaseConfigured() || !db || !storage || !file) return null;
+  try {
+    const filePath = `receipts/${collectionName}/${id}-${Date.now()}-${file.name}`;
+    const fileRef = storageRef(storage, filePath);
+    await uploadBytes(fileRef, file, { contentType: file.type || 'application/octet-stream' });
+    const url = await getDownloadURL(fileRef);
+    await updateDoc(doc(db, collectionName, id), {
+      receipt: {
+        name: file.name,
+        type: file.type || 'application/octet-stream',
+        size: file.size,
+        url,
+        uploadedAt: serverTimestamp()
+      }
+    });
+    return url;
+  } catch (err) {
+    console.error("Cloud receipt upload error:", err);
+    return null;
   }
 };
 

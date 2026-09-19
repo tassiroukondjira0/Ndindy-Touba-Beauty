@@ -67,6 +67,7 @@ import {
   CheckCircle2,
   XCircle,
   DollarSign,
+  FileText,
   AlertTriangle,
   LogOut,
   Bell,
@@ -1030,6 +1031,11 @@ export const AdminPage = () => {
                       )}
                     </div>
                     <h3 style={{ fontSize: '1.15rem', color: '#fff', marginBottom: '4px' }}>{res.braidTitle} (${res.price})</h3>
+                    {res.receipt && (
+                      <a href={res.receipt.url} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#4ade80', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>
+                        <FileText size={14} /> {language === 'fr' ? 'Reçu associé et vérifié' : 'Receipt attached and verified'}
+                      </a>
+                    )}
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                       📅 {t('admin_res_date')} <strong>{res.date} {t('admin_res_at')} {res.time}</strong> | {t('admin_res_client')} <strong>{res.clientName}</strong> ({res.clientPhone}) | {t('admin_res_payment')} <strong>{res.paymentMethod.toUpperCase()}</strong>
                     </div>
@@ -1200,6 +1206,11 @@ export const AdminPage = () => {
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
                     {t('admin_res_client')} <strong>{ord.clientName}</strong> ({ord.clientPhone})
                   </div>
+                  {ord.receipt && (
+                    <a href={ord.receipt.url} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#4ade80', fontSize: '0.82rem', fontWeight: 700, marginBottom: '12px' }}>
+                      <FileText size={14} /> {language === 'fr' ? 'Reçu associé et vérifié' : 'Receipt attached and verified'}
+                    </a>
+                  )}
                   <div style={{ fontSize: '0.85rem', backgroundColor: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', marginBottom: '14px' }}>
                     <strong>{t('admin_orders_items_label')}</strong>
                     {ord.items.map((i, idx) => (
