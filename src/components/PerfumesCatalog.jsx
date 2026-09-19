@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { dbGetPerfumes } from '../services/db';
 import { isFirebaseConfigured, subscribeToCloudPerfumes } from '../services/firebase';
+import { useAdminSession } from '../hooks/useAdminSession';
 import { ShoppingBag, Sparkles, Check, AlertCircle } from 'lucide-react';
 
 export const PerfumesCatalog = ({ onAddToCart }) => {
   const { language, t } = useLanguage();
+  const isAdminLoggedIn = useAdminSession();
   const [perfumes, setPerfumes] = useState([]);
   const [activeGender, setActiveGender] = useState('all');
   const [addedIds, setAddedIds] = useState({});
@@ -158,6 +160,43 @@ export const PerfumesCatalog = ({ onAddToCart }) => {
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(212, 175, 55, 0.12)', paddingTop: '16px', marginTop: 'auto' }}>
                     <span className="font-serif text-gold" style={{ fontSize: '1.6rem', fontWeight: 800 }}>${perfume.price.toFixed(2)}</span>
+
+                    {!isAdminLoggedIn && (
+                      <button
+                        onClick={() => handleAdd(perfume)}
+                        disabled={stock <= 0}
+                        className={isAdded ? "" : stock > 0 ? "bg-gold-gradient" : ""}
+                        style={{
+                          padding: '12px 22px',
+                          borderRadius: '30px',
+                          fontSize: '0.88rem',
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          backgroundColor: isAdded ? '#22c55e' : stock <= 0 ? 'rgba(255,255,255,0.08)' : undefined,
+                          color: stock <= 0 ? 'var(--text-muted)' : isAdded ? '#fff' : undefined,
+                          cursor: stock <= 0 ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {stock <= 0 ? (
+                          <>
+                            <AlertCircle size={15} />
+                            <span>{t('common_sold_out')}</span>
+                          </>
+                        ) : isAdded ? (
+                          <>
+                            <Check size={16} />
+                            <span>{t('common_added')}</span>
+                          </>
+                        ) : (
+                          <>
+                            <ShoppingBag size={16} />
+                            <span>{t('care_add_cart')}</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

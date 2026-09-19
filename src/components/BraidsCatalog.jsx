@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { dbGetBraids } from '../services/db';
 import { isFirebaseConfigured, subscribeToCloudBraids } from '../services/firebase';
+import { useAdminSession } from '../hooks/useAdminSession';
 import { Clock, Calendar, Check, Sparkles, Filter } from 'lucide-react';
 
 export const BraidsCatalog = ({ onSelectBraidForBooking }) => {
   const { language, t } = useLanguage();
+  const isAdminLoggedIn = useAdminSession();
   const [braids, setBraids] = useState(() => dbGetBraids());
   const [activeCategory, setActiveCategory] = useState('all');
 
@@ -189,7 +191,27 @@ export const BraidsCatalog = ({ onSelectBraidForBooking }) => {
                     {desc}
                   </p>
 
-                  <div style={{ borderTop: '1px solid rgba(212, 175, 55, 0.12)', paddingTop: '16px', marginTop: 'auto' }} />
+                  {!isAdminLoggedIn && (
+                    <div style={{ borderTop: '1px solid rgba(212, 175, 55, 0.12)', paddingTop: '16px', marginTop: 'auto' }}>
+                      <button
+                        onClick={() => onSelectBraidForBooking(item)}
+                        className="bg-gold-gradient"
+                        style={{
+                          width: '100%',
+                          padding: '12px 18px',
+                          borderRadius: '30px',
+                          fontSize: '0.9rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px'
+                        }}
+                      >
+                        <Calendar size={16} />
+                        <span>{t('braid_book_btn')}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );
