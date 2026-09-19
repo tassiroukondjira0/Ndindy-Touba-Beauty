@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { useAdminSession } from '../hooks/useAdminSession';
 import { 
   searchClientReservationsAndOrders, 
   getClientTrackedRecords 
@@ -26,6 +27,7 @@ import {
 
 export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateTo }) => {
   const { language, t } = useLanguage();
+  const isAdminLoggedIn = useAdminSession();
 
   const [searchTerm, setSearchTerm] = useState(initialQuery);
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'reservations' | 'orders'
@@ -51,10 +53,13 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
   };
 
   useEffect(() => {
-    loadRecentItems();
+    if (!isAdminLoggedIn) {
+      loadRecentItems();
+    }
     if (initialQuery) {
       handleSearchSubmit(null, initialQuery);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery]);
 
   const handleSearchSubmit = async (e, queryToUse) => {
@@ -408,7 +413,7 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
         </div>
 
         {/* Results Presentation */}
-        {totalItemsCount === 0 ? (
+        {totalItemsCount === 0 && !(isAdminLoggedIn && !isDisplayingSearch) ? (
           <div 
             className="glass-card" 
             style={{ 
@@ -442,7 +447,7 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
                   >
                     {language === 'fr' ? 'Réessayer une autre recherche' : 'Try another search'}
                   </button>
-                  {onOpenBooking && (
+                  {!isAdminLoggedIn && onOpenBooking && (
                     <button
                       onClick={onOpenBooking}
                       className="bg-gold-gradient"
@@ -771,68 +776,70 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
           </div>
         )}
 
-        {/* Assistance Card at Bottom */}
-        <div 
-          className="glass-card" 
-          style={{ 
-            padding: '28px', 
-            borderRadius: '16px', 
-            border: '1px solid rgba(212, 175, 55, 0.25)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '20px'
-          }}
-        >
-          <div>
-            <h3 className="font-serif text-gold" style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '6px' }}>
-              {t('tracking_help_title')}
-            </h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.5, maxWidth: '560px' }}>
-              {t('tracking_help_desc')}
-            </p>
-          </div>
+        {/* Assistance Card at Bottom (hidden for the owner) */}
+        {!isAdminLoggedIn && (
+          <div 
+            className="glass-card" 
+            style={{ 
+              padding: '28px', 
+              borderRadius: '16px', 
+              border: '1px solid rgba(212, 175, 55, 0.25)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '20px'
+            }}
+          >
+            <div>
+              <h3 className="font-serif text-gold" style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '6px' }}>
+                {t('tracking_help_title')}
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.5, maxWidth: '560px' }}>
+                {t('tracking_help_desc')}
+              </p>
+            </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <a
-              href="tel:4438581400"
-              className="bg-gold-gradient"
-              style={{
-                padding: '10px 22px',
-                borderRadius: '24px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontWeight: 700,
-                fontSize: '0.9rem',
-                textDecoration: 'none',
-                color: '#000'
-              }}
-            >
-              <Phone size={16} />
-              <span>443-858-1400</span>
-            </a>
-
-            {onOpenBooking && (
-              <button
-                onClick={onOpenBooking}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <a
+                href="tel:4438581400"
+                className="bg-gold-gradient"
                 style={{
                   padding: '10px 22px',
                   borderRadius: '24px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(212, 175, 55, 0.4)',
-                  color: 'var(--gold-light)',
-                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontWeight: 700,
                   fontSize: '0.9rem',
-                  cursor: 'pointer'
+                  textDecoration: 'none',
+                  color: '#000'
                 }}
               >
-                {t('nav_book_btn')}
-              </button>
-            )}
+                <Phone size={16} />
+                <span>443-858-1400</span>
+              </a>
+
+              {onOpenBooking && (
+                <button
+                  onClick={onOpenBooking}
+                  style={{
+                    padding: '10px 22px',
+                    borderRadius: '24px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(212, 175, 55, 0.4)',
+                    color: 'var(--gold-light)',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {t('nav_book_btn')}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
       </div>
     </div>

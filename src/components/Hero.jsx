@@ -1,9 +1,11 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { useAdminSession } from '../hooks/useAdminSession';
 import { Calendar, ArrowRight, Star, ShieldCheck, Award, Sparkles } from 'lucide-react';
 
 export const Hero = ({ onOpenBooking, navigateTo }) => {
   const { language, t } = useLanguage();
+  const isAdminLoggedIn = useAdminSession();
 
   return (
     <section
@@ -87,44 +89,46 @@ export const Hero = ({ onOpenBooking, navigateTo }) => {
               {t('hero_subtitle')}
             </p>
 
-            {/* CTA Buttons */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '48px' }}>
-              <button
-                onClick={onOpenBooking}
-                className="bg-gold-gradient"
-                style={{
-                  padding: '16px 36px',
-                  borderRadius: '40px',
-                  fontSize: '1rem',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '10px'
-                }}
-              >
-                <Calendar size={18} />
-                <span>{t('hero_cta_book')}</span>
-              </button>
+            {/* CTA Buttons (hidden on the owner's dashboard) */}
+            {!isAdminLoggedIn && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '48px' }}>
+                <button
+                  onClick={onOpenBooking}
+                  className="bg-gold-gradient"
+                  style={{
+                    padding: '16px 36px',
+                    borderRadius: '40px',
+                    fontSize: '1rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                  }}
+                >
+                  <Calendar size={18} />
+                  <span>{t('hero_cta_book')}</span>
+                </button>
 
-              <button
-                onClick={() => navigateTo && navigateTo('/products')}
-                style={{
-                  padding: '16px 32px',
-                  borderRadius: '40px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(212, 175, 55, 0.3)',
-                  color: 'var(--text-main)',
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  transition: 'all 0.3s'
-                }}
-              >
-                <span>{t('hero_cta_shop')}</span>
-                <ArrowRight size={16} />
-              </button>
-            </div>
+                <button
+                  onClick={() => navigateTo && navigateTo('/products')}
+                  style={{
+                    padding: '16px 32px',
+                    borderRadius: '40px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(212, 175, 55, 0.3)',
+                    color: 'var(--text-main)',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    transition: 'all 0.3s'
+                  }}
+                >
+                  <span>{t('hero_cta_shop')}</span>
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            )}
 
             {/* Key Stats Bar */}
             <div

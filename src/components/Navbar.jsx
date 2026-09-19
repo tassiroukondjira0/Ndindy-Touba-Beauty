@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useClientAuth } from '../context/ClientAuthContext';
-import { hasAdminAccount, getCurrentAdminSession } from '../services/auth';
+import { hasAdminAccount } from '../services/auth';
+import { useAdminSession } from '../hooks/useAdminSession';
 import { ClientNotificationBell } from './ClientNotificationBell';
 import { ShoppingBag, Calendar, Globe, Sparkles, User, LogOut, Menu, X } from 'lucide-react';
 
@@ -9,7 +10,7 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
   const { language, toggleLanguage, t } = useLanguage();
   const { clientUser, authEnabled, authLoading, openAuth, signOutClient } = useClientAuth();
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const isAdminLoggedIn = useAdminSession();
   const [accountCreated, setAccountCreated] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 1024px)').matches);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -24,7 +25,6 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
 
   useEffect(() => {
     setAccountCreated(hasAdminAccount());
-    setIsAdminLoggedIn(!!getCurrentAdminSession());
   }, [currentPath]);
 
   useEffect(() => {
@@ -168,46 +168,48 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
           {/* Client Notification Bell (only for clients, not for the owner's dashboard) */}
           {!isAdminLoggedIn && !isMobile && <ClientNotificationBell navigateTo={navigateTo} />}
 
-          {/* Cart Icon */}
-          <button
-            onClick={onOpenCart}
-            style={{
-              position: 'relative',
-              width: '40px',
-              height: '40px',
-              borderRadius: '50%',
-              backgroundColor: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              color: 'var(--text-main)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}
-          >
-            <ShoppingBag size={18} />
-            {cartCount > 0 && (
-              <span
-                style={{
-                  position: 'absolute',
-                  top: '-4px',
-                  right: '-4px',
-                  backgroundColor: 'var(--gold-primary)',
-                  color: '#000',
-                  fontSize: '0.7rem',
-                  fontWeight: 800,
-                  width: '18px',
-                  height: '18px',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                {cartCount}
-              </span>
-            )}
-          </button>
+          {/* Cart Icon (hidden for the owner's dashboard) */}
+          {!isAdminLoggedIn && (
+            <button
+              onClick={onOpenCart}
+              style={{
+                position: 'relative',
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                color: 'var(--text-main)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
+            >
+              <ShoppingBag size={18} />
+              {cartCount > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-4px',
+                    right: '-4px',
+                    backgroundColor: 'var(--gold-primary)',
+                    color: '#000',
+                    fontSize: '0.7rem',
+                    fontWeight: 800,
+                    width: '18px',
+                    height: '18px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Client Account (desktop) */}
           {!isMobile && authEnabled && !authLoading && (

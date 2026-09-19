@@ -10,6 +10,13 @@ import { signOut } from 'firebase/auth';
 const AUTH_STORAGE_KEY = 'touba_ndindy_admin_account';
 const SESSION_STORAGE_KEY = 'touba_ndindy_admin_session';
 
+export const ADMIN_SESSION_EVENT = 'touba_ndindy_admin_session_changed';
+
+const notifyAdminSessionChanged = () => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(ADMIN_SESSION_EVENT));
+};
+
 /**
  * Checks if an owner admin account already exists locally
  */
@@ -150,6 +157,7 @@ export const registerAdminAccount = (accountData) => {
     loggedInAt: new Date().toISOString()
   };
   localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  notifyAdminSessionChanged();
 
   if (isFirebaseConfigured()) {
     cloudRegisterAdmin(accountData).catch(err => console.warn("Background cloud admin registration:", err));
@@ -206,6 +214,7 @@ export const registerAdminAccountAsync = async (accountData) => {
     loggedInAt: new Date().toISOString()
   };
   localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  notifyAdminSessionChanged();
 
   return account;
 };
@@ -234,6 +243,7 @@ export const loginAdminAccount = (email, password) => {
   };
 
   localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  notifyAdminSessionChanged();
   return session;
 };
 
@@ -253,6 +263,7 @@ export const loginAdminAccountAsync = async (email, password) => {
           loggedInAt: new Date().toISOString()
         };
         localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+        notifyAdminSessionChanged();
         return session;
       }
     } catch (e) {
@@ -277,6 +288,7 @@ export const getCurrentAdminSession = () => {
  */
 export const logoutAdminAccount = () => {
   localStorage.removeItem(SESSION_STORAGE_KEY);
+  notifyAdminSessionChanged();
   if (isFirebaseConfigured() && auth) {
     try {
       signOut(auth).catch(() => {});
