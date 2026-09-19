@@ -162,7 +162,7 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
             }}
           >
             <Globe size={15} />
-            {!isMobile && <span>{language === 'fr' ? '🇫🇷 FR' : '🇬🇧 EN'}</span>}
+            {!isMobile && <span>{language === 'fr' ? '🇫🇷 FR' : 'en EN'}</span>}
           </button>
 
           {/* Client Notification Bell (only for clients, not for the owner's dashboard) */}
