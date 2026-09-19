@@ -40,7 +40,7 @@ export const translations = {
     status_order_pending: "En attente de traitement",
 
     // Hero
-    hero_badge: "Expertise & Authenticité Africaine à Baltimore, MD",
+    hero_badge: "35 ans d'Expertise & Authenticité Africaine à Baltimore, MD",
     hero_title_1: "L'Art de la Tresse Africaine",
     hero_title_2: "Et la Beauté Sublimée",
     hero_subtitle: "TOUBA NDINDY Professional African Hair Braiding vous accueille pour des coiffures d'exception, des soins capillaires naturels et une sélection exclusive de parfums d'Orient.",
@@ -58,7 +58,7 @@ export const translations = {
     info_tag: "Le Salon",
     info_title: "Bienvenue chez TOUBA NDINDY",
     info_subtitle: "Des artisanes passionnées pour des tresses durables, élégantes et protectrices.",
-    info_desc: "Implanté au cœur de Baltimore, Maryland, le salon TOUBA NDINDY est reconnu pour son savoir-faire traditionnel, son hygiène irréprochable et son accueil chaleureux. Nous sublimons tous types de cheveux avec des techniques de tressage authentiques sans douleur.",
+    info_desc: "Implanté au cœur de Baltimore, Maryland, le salon TOUBA NDINDY est reconnu pour son savoir-faire traditionnel, son hygiène irréprochable et son accueil chaleureux. Avec plus de 35 ans d'expérience, nous sublimons tous types de cheveux avec des techniques de tressage authentiques sans douleur.",
     info_address_label: "Adresse du Salon",
     info_address_val: "306 North Eutaw Street, Baltimore Maryland 21201",
     info_phone_label: "Téléphone & Prise de RDV",
@@ -475,7 +475,7 @@ export const translations = {
     status_order_pending: "Pending Processing",
 
     // Hero
-    hero_badge: "Expertise & Authentic African Braiding in Baltimore, MD",
+    hero_badge: "35 Years of Expertise & Authentic African Braiding in Baltimore, MD",
     hero_title_1: "The Art of African Braiding",
     hero_title_2: "And Elevated Beauty",
     hero_subtitle: "TOUBA NDINDY Professional African Hair Braiding welcomes you for exceptional hairstyles, natural hair care, and an exclusive selection of luxury oriental perfumes.",
@@ -493,7 +493,7 @@ export const translations = {
     info_tag: "The Salon",
     info_title: "Welcome to TOUBA NDINDY",
     info_subtitle: "Passionate artisans for long-lasting, elegant, and protective braids.",
-    info_desc: "Located in the heart of Baltimore, Maryland, TOUBA NDINDY salon is recognized for authentic techniques, immaculate hygiene, and warm customer care. We elevate all hair types with comfortable, painless braiding skills.",
+    info_desc: "Located in the heart of Baltimore, Maryland, TOUBA NDINDY salon is recognized for authentic techniques, immaculate hygiene, and warm customer care. With more than 35 years of experience, we elevate all hair types with comfortable, painless braiding skills.",
     info_address_label: "Salon Address",
     info_address_val: "306 North Eutaw Street, Baltimore Maryland 21201",
     info_phone_label: "Phone & Appointments",
