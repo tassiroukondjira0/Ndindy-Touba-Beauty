@@ -161,7 +161,7 @@ export const AdminPage = () => {
   const [loginError, setLoginError] = useState('');
 
   // Dashboard Data State
-  const [activeTab, setActiveTab] = useState('reservations');
+  const [activeTab, setActiveTab] = useState('all');
   const [reservations, setReservations] = useState([]);
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
@@ -653,6 +653,10 @@ export const AdminPage = () => {
   const totalReservationsCount = reservations.length;
   const allProductsList = products;
   const lowStockItems = allProductsList.filter(p => p.stock < 5);
+  const allEntries = [
+    ...reservations.map(item => ({ ...item, kind: 'reservation' })),
+    ...orders.map(item => ({ ...item, kind: 'order' }))
+  ].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
   return (
     <div style={{ paddingTop: '140px', paddingBottom: '100px' }}>
@@ -843,6 +847,19 @@ export const AdminPage = () => {
         {/* Dashboard Tabs */}
         <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', paddingBottom: '14px', overflowX: 'auto' }}>
           <button
+            onClick={() => setActiveTab('all')}
+            style={{
+              padding: '10px 24px',
+              borderRadius: '20px',
+              fontWeight: 700,
+              backgroundColor: activeTab === 'all' ? 'var(--gold-primary)' : 'rgba(255,255,255,0.04)',
+              color: activeTab === 'all' ? '#000' : 'var(--text-main)',
+              border: activeTab === 'all' ? 'none' : '1px solid rgba(212,175,55,0.2)'
+            }}
+          >
+            📋 {t('common_all')} ({allEntries.length})
+          </button>
+          <button
             onClick={() => setActiveTab('reservations')}
             style={{
               padding: '10px 24px',
@@ -908,6 +925,64 @@ export const AdminPage = () => {
             👤 {t('admin_tab_short_profile')}
           </button>
         </div>
+
+        {/* TAB 0: ALL */}
+        {activeTab === 'all' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {allEntries.map(item => {
+              const isReservationEntry = item.kind === 'reservation';
+              const status = item.status || 'en_attente';
+              const statusBg = isReservationEntry
+                ? (status === 'confirmée' ? 'rgba(34, 197, 94, 0.15)' : status === 'annulée' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 179, 8, 0.15)')
+                : (status === 'validée' ? 'rgba(34, 197, 94, 0.15)' : status === 'refusée' ? 'rgba(239, 68, 68, 0.15)' : status === 'récupérée' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(234, 179, 8, 0.15)');
+              const statusColor = isReservationEntry
+                ? (status === 'confirmée' ? '#22c55e' : status === 'annulée' ? '#ef4444' : '#eab308')
+                : (status === 'validée' ? '#22c55e' : status === 'refusée' ? '#ef4444' : status === 'récupérée' ? '#38bdf8' : '#eab308');
+
+              return (
+                <div key={`${item.kind}-${item.id}`} className="glass-card" style={{ padding: '20px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                      <span className="font-serif text-gold" style={{ fontWeight: 800 }}>{item.id}</span>
+                      <span style={{ fontSize: '0.8rem', padding: '3px 10px', borderRadius: '12px', backgroundColor: statusBg, color: statusColor, fontWeight: 700 }}>
+                        {isReservationEntry ? getResStatusLabel(status) : getOrderStatusLabel(status)}
+                      </span>
+                      <span style={{ fontSize: '0.72rem', padding: '3px 10px', borderRadius: '12px', backgroundColor: 'rgba(212, 175, 55, 0.12)', color: 'var(--gold-light)', fontWeight: 700 }}>
+                        {isReservationEntry ? 'Réservation' : 'Commande'}
+                      </span>
+                    </div>
+                    <h3 style={{ fontSize: '1.08rem', color: '#fff', marginBottom: '4px' }}>
+                      {isReservationEntry ? (item.braidTitle || 'Service') : (item.items || []).map(i => i.name).join(', ') || 'Produit(s)'}
+                    </h3>
+                    <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                      {isReservationEntry ? (
+                        <>
+                          📅 {t('admin_res_date')} <strong>{item.date} {t('admin_res_at')} {item.time}</strong> | {t('admin_res_client')} <strong>{item.clientName}</strong> ({item.clientPhone})
+                        </>
+                      ) : (
+                        <>
+                          {t('admin_res_client')} <strong>{item.clientName}</strong> ({item.clientPhone}) | {t('admin_orders_total')} <strong>${Number(item.total || 0).toFixed(2)}</strong>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {isReservationEntry ? (
+                      <button onClick={() => handleStatusChange(item.id, item.status === 'confirmée' ? 'annulée' : 'confirmée')} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: item.status === 'confirmée' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)', color: item.status === 'confirmée' ? '#ef4444' : '#22c55e', border: '1px solid rgba(212,175,55,0.2)', fontSize: '0.82rem', fontWeight: 600 }}>
+                        {item.status === 'confirmée' ? t('admin_btn_cancel') : t('admin_btn_confirm')}
+                      </button>
+                    ) : (
+                      <button onClick={() => handleOrderStatusChange(item.id, item.status === 'validée' ? 'refusée' : 'validée')} style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: item.status === 'validée' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)', color: item.status === 'validée' ? '#ef4444' : '#22c55e', border: '1px solid rgba(212,175,55,0.2)', fontSize: '0.82rem', fontWeight: 600 }}>
+                        {item.status === 'validée' ? t('admin_btn_refuse') : t('admin_btn_validate_order')}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* TAB 1: RESERVATIONS */}
         {activeTab === 'reservations' && (

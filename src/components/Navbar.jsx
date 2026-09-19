@@ -4,7 +4,8 @@ import { useClientAuth } from '../context/ClientAuthContext';
 import { hasAdminAccount } from '../services/auth';
 import { useAdminSession } from '../hooks/useAdminSession';
 import { ClientNotificationBell } from './ClientNotificationBell';
-import { ShoppingBag, Calendar, Globe, Sparkles, User, LogOut, Menu, X } from 'lucide-react';
+import { getAdminNotifications, getUnreadAdminNotifCount, markAdminNotifsAsRead } from '../services/notifications';
+import { ShoppingBag, Calendar, Globe, Sparkles, User, LogOut, Menu, X, Bell, CheckCheck } from 'lucide-react';
 
 export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navigateTo }) => {
   const { language, toggleLanguage, t } = useLanguage();
@@ -14,6 +15,9 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
   const [accountCreated, setAccountCreated] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 1024px)').matches);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [adminNotifs, setAdminNotifs] = useState([]);
+  const [adminUnreadNotifCount, setAdminUnreadNotifCount] = useState(0);
+  const [isAdminNotifPanelOpen, setIsAdminNotifPanelOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -22,6 +26,24 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    if (!isAdminLoggedIn) {
+      setAdminNotifs([]);
+      setAdminUnreadNotifCount(0);
+      return;
+    }
+
+    const refreshAdminNotifs = () => {
+      const notifList = getAdminNotifications();
+      setAdminNotifs(notifList);
+      setAdminUnreadNotifCount(getUnreadAdminNotifCount());
+    };
+
+    refreshAdminNotifs();
+    window.addEventListener('storage', refreshAdminNotifs);
+    return () => window.removeEventListener('storage', refreshAdminNotifs);
+  }, [isAdminLoggedIn]);
 
   useEffect(() => {
     setAccountCreated(hasAdminAccount());
@@ -56,6 +78,12 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
   const handleNavigate = (path) => {
     setMobileOpen(false);
     navigateTo(path);
+  };
+
+  const handleMarkAdminNotifsRead = () => {
+    const updated = markAdminNotifsAsRead();
+    setAdminNotifs(updated);
+    setAdminUnreadNotifCount(0);
   };
 
   const renderNavLink = (item) => {
@@ -167,6 +195,109 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
 
           {/* Client Notification Bell (only for clients, not for the owner's dashboard) */}
           {!isAdminLoggedIn && !isMobile && <ClientNotificationBell navigateTo={navigateTo} />}
+
+          {/* Admin Notification Bell (always visible in the header when owner is connected) */}
+          {isAdminLoggedIn && !isMobile && (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setIsAdminNotifPanelOpen(!isAdminNotifPanelOpen)}
+                style={{
+                  position: 'relative',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(212, 175, 55, 0.12)',
+                  border: '1px solid rgba(212, 175, 55, 0.3)',
+                  color: 'var(--gold-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+              >
+                <Bell size={18} />
+                {adminUnreadNotifCount > 0 && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: '-4px',
+                      right: '-4px',
+                      backgroundColor: '#ef4444',
+                      color: '#fff',
+                      fontSize: '0.66rem',
+                      fontWeight: 800,
+                      width: '18px',
+                      height: '18px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      border: '2px solid #0b0a0e'
+                    }}
+                  >
+                    {adminUnreadNotifCount}
+                  </span>
+                )}
+              </button>
+
+              {isAdminNotifPanelOpen && (
+                <div
+                  className="glass-card"
+                  style={{
+                    position: 'absolute',
+                    top: '50px',
+                    right: 0,
+                    width: 'min(340px, calc(100vw - 40px))',
+                    maxHeight: '360px',
+                    overflowY: 'auto',
+                    zIndex: 180,
+                    padding: '18px',
+                    border: '1px solid rgba(212, 175, 55, 0.4)',
+                    boxShadow: '0 15px 35px rgba(0,0,0,0.8)'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid rgba(212,175,55,0.2)', paddingBottom: '10px' }}>
+                    <h4 className="font-serif text-gold" style={{ fontSize: '1.1rem', fontWeight: 700 }}>
+                      {t('admin_realtime_title')}
+                    </h4>
+                    {adminUnreadNotifCount > 0 && (
+                      <button
+                        onClick={handleMarkAdminNotifsRead}
+                        style={{ background: 'none', border: 'none', color: 'var(--gold-light)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', cursor: 'pointer' }}
+                      >
+                        <CheckCheck size={14} />
+                        <span>{t('admin_mark_all_read')}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {adminNotifs.length === 0 ? (
+                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem', padding: '12px 0' }}>
+                      {t('admin_notif_none')}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {adminNotifs.map(notif => (
+                        <div
+                          key={notif.id}
+                          style={{
+                            padding: '10px 12px',
+                            borderRadius: '10px',
+                            backgroundColor: notif.read ? 'rgba(255,255,255,0.02)' : 'rgba(212, 175, 55, 0.12)',
+                            borderLeft: notif.read ? '3px solid transparent' : '3px solid var(--gold-primary)',
+                            fontSize: '0.83rem'
+                          }}
+                        >
+                          <div style={{ color: '#fff', fontWeight: 700, marginBottom: '2px' }}>{notif.title}</div>
+                          <div style={{ color: 'var(--text-muted)', lineHeight: 1.45 }}>{notif.message}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Cart Icon (hidden for the owner's dashboard) */}
           {!isAdminLoggedIn && (
@@ -390,6 +521,43 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
                 <Calendar size={16} />
                 <span>{t('nav_book_btn')}</span>
               </button>
+            </div>
+          )}
+
+          {isAdminLoggedIn && (
+            <div style={{ marginTop: '10px', paddingTop: '14px', borderTop: '1px solid rgba(212, 175, 55, 0.15)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                onClick={() => setIsAdminNotifPanelOpen(!isAdminNotifPanelOpen)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(212, 175, 55, 0.12)',
+                  border: '1px solid rgba(212, 175, 55, 0.3)',
+                  color: 'var(--gold-light)',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Bell size={16} />
+                  {t('admin_realtime_title')}
+                </span>
+                {adminUnreadNotifCount > 0 && <span style={{ backgroundColor: '#ef4444', color: '#fff', borderRadius: '99px', padding: '2px 8px', fontSize: '0.72rem' }}>{adminUnreadNotifCount}</span>}
+              </button>
+
+              {isAdminNotifPanelOpen && adminNotifs.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {adminNotifs.map(notif => (
+                    <div key={notif.id} style={{ padding: '10px 12px', borderRadius: '10px', backgroundColor: notif.read ? 'rgba(255,255,255,0.02)' : 'rgba(212, 175, 55, 0.12)', borderLeft: notif.read ? '3px solid transparent' : '3px solid var(--gold-primary)', color: 'var(--text-main)' }}>
+                      <div style={{ fontWeight: 700, marginBottom: '4px' }}>{notif.title}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{notif.message}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
