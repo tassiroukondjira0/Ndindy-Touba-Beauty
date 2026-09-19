@@ -14,6 +14,15 @@ import { BookingModal } from './components/BookingModal';
 import { CartDrawer } from './components/CartDrawer';
 import { ClientNotificationWatcher } from './components/ClientNotificationWatcher';
 import { ClientAuthModal } from './components/ClientAuthModal';
+import {
+  isFirebaseConfigured,
+  subscribeToCloudProducts,
+  subscribeToCloudBraids,
+  subscribeToCloudReservations,
+  subscribeToCloudOrders,
+  subscribeToCloudReviews,
+  subscribeToCloudNotifications
+} from './services/firebase';
 
 export const AppContent = () => {
   const [currentPath, setCurrentPath] = useState('/');
@@ -25,6 +34,36 @@ export const AppContent = () => {
 
   useEffect(() => {
     initDB();
+  }, []);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured()) return undefined;
+
+    const syncCollectionToLocalStorage = (key, items) => {
+      const existing = JSON.parse(localStorage.getItem(key) || '[]');
+      const map = new Map();
+      existing.forEach(item => map.set(item.id, item));
+      items.forEach(item => map.set(item.id, item));
+      const merged = Array.from(map.values());
+      localStorage.setItem(key, JSON.stringify(merged));
+      window.dispatchEvent(new Event('storage'));
+    };
+
+    const unsubProducts = subscribeToCloudProducts((items) => syncCollectionToLocalStorage('touba_ndindy_products', items));
+    const unsubBraids = subscribeToCloudBraids((items) => syncCollectionToLocalStorage('touba_ndindy_braids', items));
+    const unsubReservations = subscribeToCloudReservations((items) => syncCollectionToLocalStorage('touba_ndindy_reservations', items));
+    const unsubOrders = subscribeToCloudOrders((items) => syncCollectionToLocalStorage('touba_ndindy_orders', items));
+    const unsubReviews = subscribeToCloudReviews((items) => syncCollectionToLocalStorage('touba_ndindy_reviews', items));
+    const unsubNotifications = subscribeToCloudNotifications((items) => syncCollectionToLocalStorage('touba_ndindy_admin_notifications', items));
+
+    return () => {
+      unsubProducts();
+      unsubBraids();
+      unsubReservations();
+      unsubOrders();
+      unsubReviews();
+      unsubNotifications();
+    };
   }, []);
 
   const navigateTo = (path, extraQuery = '') => {
