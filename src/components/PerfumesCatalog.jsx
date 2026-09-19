@@ -42,9 +42,11 @@ export const PerfumesCatalog = ({ onAddToCart }) => {
     { key: 'men', label: t('perfume_gender_men') }
   ];
 
+  // Defensive: only render items tagged as perfumes (unified catalog).
+  const perfumeOnly = perfumes.filter(p => p.type === 'perfume');
   const filteredPerfumes = activeGender === 'all'
-    ? perfumes
-    : perfumes.filter(p => p.gender === activeGender);
+    ? perfumeOnly
+    : perfumeOnly.filter(p => p.gender === activeGender);
 
   const handleAdd = (perfume) => {
     if (perfume.stock <= 0) return;

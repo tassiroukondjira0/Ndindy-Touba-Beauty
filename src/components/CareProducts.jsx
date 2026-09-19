@@ -42,9 +42,12 @@ export const CareProducts = ({ onAddToCart }) => {
     { key: 'body', label: t('care_cat_body') }
   ];
 
+  // Perfumes live in the same unified catalog; keep only care products here.
+  const careProducts = products.filter(p => p.type !== 'perfume');
+
   const filteredProducts = activeCategory === 'all'
-    ? products
-    : products.filter(p => p.category === activeCategory);
+    ? careProducts
+    : careProducts.filter(p => p.category === activeCategory);
 
   const handleAdd = (product) => {
     if (product.stock <= 0) return;

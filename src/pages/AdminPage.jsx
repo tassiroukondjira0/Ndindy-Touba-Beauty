@@ -17,7 +17,6 @@ import {
 } from '../services/auth';
 import { 
   dbGetProducts, 
-  dbGetPerfumes, 
   dbSaveProduct, 
   dbDeleteProduct, 
   dbUpdateStock, 
@@ -35,7 +34,6 @@ import {
   subscribeToCloudReservations,
   subscribeToCloudOrders,
   subscribeToCloudProducts,
-  subscribeToCloudPerfumes,
   subscribeToCloudAdmin
 } from '../services/firebase';
 import { 
@@ -167,7 +165,6 @@ export const AdminPage = () => {
   const [reservations, setReservations] = useState([]);
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
-  const [perfumes, setPerfumes] = useState([]);
   const [braids, setBraids] = useState([]);
 
   // Notifications State
@@ -243,7 +240,6 @@ export const AdminPage = () => {
     setReservations(prev => mergeById(prev, dbGetReservations()));
     setOrders(prev => mergeById(prev, dbGetOrders()));
     setProducts(dbGetProducts());
-    setPerfumes(dbGetPerfumes());
     setBraids(dbGetBraids());
 
     const freshNotifs = getAdminNotifications();
@@ -323,17 +319,10 @@ export const AdminPage = () => {
       }
     });
 
-    const unsubPerfumes = subscribeToCloudPerfumes((cloudPerfumes) => {
-      if (cloudPerfumes && cloudPerfumes.length > 0) {
-        setPerfumes(cloudPerfumes);
-      }
-    });
-
     return () => {
       if (unsubRes) unsubRes();
       if (unsubOrders) unsubOrders();
       if (unsubProducts) unsubProducts();
-      if (unsubPerfumes) unsubPerfumes();
     };
   }, [currentSession]);
 
@@ -418,22 +407,14 @@ export const AdminPage = () => {
     setUnreadNotifCount(0);
   };
 
-  const handleStockChange = (id, currentStock, delta, type) => {
+  const handleStockChange = (id, currentStock, delta) => {
     const nextStock = Math.max(0, currentStock + delta);
-    if (type === 'perfume') {
-      setPerfumes(dbUpdateStock(id, nextStock, 'perfume'));
-    } else {
-      setProducts(dbUpdateStock(id, nextStock, 'product'));
-    }
+    setProducts(dbUpdateStock(id, nextStock));
   };
 
-  const handleDeleteProduct = (id, type) => {
+  const handleDeleteProduct = (id) => {
     if (window.confirm(t('admin_confirm_delete'))) {
-      if (type === 'perfume') {
-        setPerfumes(dbDeleteProduct(id, 'perfume'));
-      } else {
-        setProducts(dbDeleteProduct(id, 'product'));
-      }
+      setProducts(dbDeleteProduct(id));
     }
   };
 
@@ -460,12 +441,8 @@ export const AdminPage = () => {
     setNewDesc('');
   };
 
-  const handlePriceSave = (id, newPrice, type) => {
-    if (type === 'perfume') {
-      setPerfumes(dbUpdatePrice(id, newPrice, 'perfume'));
-    } else {
-      setProducts(dbUpdatePrice(id, newPrice, 'product'));
-    }
+  const handlePriceSave = (id, newPrice) => {
+    setProducts(dbUpdatePrice(id, newPrice));
   };
 
   const handleBraidPriceSave = (id, newPrice) => {
@@ -674,7 +651,7 @@ export const AdminPage = () => {
   // SCENARIO C: AUTHENTICATED ADMINISTRATOR -> FULL ACCESS TO DASHBOARD & NOTIFICATION BELL
   const totalRevenue = orders.filter(o => o.status !== 'refusée').reduce((sum, o) => sum + (o.total || 0), 0);
   const totalReservationsCount = reservations.length;
-  const allProductsList = [...products.map(p => ({...p, itemType: 'product'})), ...perfumes.map(p => ({...p, itemType: 'perfume'}))];
+  const allProductsList = products;
   const lowStockItems = allProductsList.filter(p => p.stock < 5);
 
   return (
@@ -1011,19 +988,19 @@ export const AdminPage = () => {
                     <h4 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '6px', color: '#fff' }}>{name}</h4>
                     <PriceEditor
                       price={Number(item.price)}
-                      onSave={(p) => handlePriceSave(item.id, p, item.itemType)}
+                      onSave={(p) => handlePriceSave(item.id, p)}
                     />
                     <div style={{ marginTop: '4px', marginBottom: '14px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('admin_edit_price')}</div>
 
                     <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(212,175,55,0.15)', paddingTop: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('admin_stock_label')}</span>
-                        <button onClick={() => handleStockChange(item.id, item.stock, -1, item.itemType)} style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff' }}>-</button>
+                        <button onClick={() => handleStockChange(item.id, item.stock, -1)} style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff' }}>-</button>
                         <span style={{ fontWeight: 800, minWidth: '20px', textAlign: 'center' }}>{item.stock}</span>
-                        <button onClick={() => handleStockChange(item.id, item.stock, 1, item.itemType)} style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff' }}>+</button>
+                        <button onClick={() => handleStockChange(item.id, item.stock, 1)} style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff' }}>+</button>
                       </div>
 
-                      <button onClick={() => handleDeleteProduct(item.id, item.itemType)} style={{ color: '#ef4444', backgroundColor: 'transparent' }}>
+                      <button onClick={() => handleDeleteProduct(item.id)} style={{ color: '#ef4444', backgroundColor: 'transparent' }}>
                         <Trash2 size={18} />
                       </button>
                     </div>

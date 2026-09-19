@@ -21,12 +21,12 @@ import {
   cloudSetItems,
   cloudSaveBraid,
   cloudDeleteBraid,
+  cloudDeleteCollectionDoc,
   cloudSaveReview
 } from './firebase';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'touba_ndindy_products',
-  PERFUMES: 'touba_ndindy_perfumes',
   BRAIDS: 'touba_ndindy_braids',
   REVIEWS: 'touba_ndindy_reviews',
   RESERVATIONS: 'touba_ndindy_reservations',
@@ -43,6 +43,19 @@ const initialPerfumes = perfumesData.map(p => ({
   stock: p.stock !== undefined ? p.stock : Math.floor(Math.random() * 8) + 5
 }));
 
+// Single unified catalog: care products AND perfumes share one storage key and
+// one Firestore collection (`products`). Perfumes are tagged with
+// `type: 'perfume'` so the UI can tell them apart from care products.
+const initialCatalog = [
+  ...initialProducts,
+  ...initialPerfumes.map(p => ({ ...p, type: 'perfume' }))
+];
+
+// One-time migration flags/keys for the old separate `perfumes` storage.
+const LEGACY_PERFUME_KEY = 'touba_ndindy_perfumes';
+const LOCAL_PERFUMES_MIGRATED_FLAG = 'touba_ndindy_local_perfumes_migrated';
+const CLOUD_PERFUMES_MIGRATED_FLAG = 'touba_ndindy_cloud_perfumes_migrated';
+
 // IDs of demo reservations / orders / notifications seeded in older versions of
 // the app. They are purged from localStorage AND from Firestore so the database
 // only contains data created by real site interactions.
@@ -53,10 +66,7 @@ const CLOUD_DEMO_PURGE_FLAG = 'touba_ndindy_cloud_demo_purged';
 
 export const initDB = () => {
   if (!localStorage.getItem(STORAGE_KEYS.PRODUCTS)) {
-    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(initialProducts));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.PERFUMES)) {
-    localStorage.setItem(STORAGE_KEYS.PERFUMES, JSON.stringify(initialPerfumes));
+    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(initialCatalog));
   }
   if (!localStorage.getItem(STORAGE_KEYS.BRAIDS)) {
     localStorage.setItem(STORAGE_KEYS.BRAIDS, JSON.stringify(braidsData));
@@ -71,7 +81,10 @@ export const initDB = () => {
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify([]));
   }
 
-  // One-time local cleanup: strip legacy demo reservations/orders from browsers
+  // One-time cleanup: fold any legacy `perfumes` list into the unified catalog.
+  migrateLegacyPerfumeStorage();
+
+  // One-time cleanup: strip legacy demo reservations/orders from browsers
   // that still hold them, then purge the same demo docs from Firestore.
   cleanupLocalDemoData();
   purgeCloudDemoData();
@@ -83,6 +96,47 @@ export const initDB = () => {
 };
 
 const CLOUD_CATALOG_SEED_FLAG = 'touba_ndindy_cloud_catalog_seeded';
+
+// Folds the legacy separate perfumes list (old installs) into the unified
+// `products` catalog, tagging each entry as `type: 'perfume'`. Runs once.
+const migrateLegacyPerfumeStorage = () => {
+  try {
+    if (localStorage.getItem(LOCAL_PERFUMES_MIGRATED_FLAG)) return;
+    const legacy = localStorage.getItem(LEGACY_PERFUME_KEY);
+    if (legacy) {
+      const products = JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS) || '[]');
+      const perfumes = JSON.parse(legacy || '[]');
+      const map = new Map(products.map(p => [p.id, p]));
+      perfumes.forEach(p => map.set(p.id, { ...p, type: 'perfume' }));
+      localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(Array.from(map.values())));
+      localStorage.removeItem(LEGACY_PERFUME_KEY);
+    }
+    localStorage.setItem(LOCAL_PERFUMES_MIGRATED_FLAG, 'done');
+  } catch {
+    // Best-effort migration; never break startup because of it.
+  }
+};
+
+// Moves the FIRESTORE `perfumes` collection into the single `products`
+// collection (`type: 'perfume'`), then deletes the perfume documents so the
+// `perfumes` collection is emptied. Idempotent and runs at most once per
+// browser. Kept inside hydration so the freshly merged docs are picked up on
+// the very same load.
+const migrateCloudPerfumesToProducts = async () => {
+  try {
+    if (localStorage.getItem(CLOUD_PERFUMES_MIGRATED_FLAG) === 'done') return;
+    if (!isFirebaseConfigured()) return;
+
+    const cloudPerfumes = await cloudGetAll('perfumes');
+    if (cloudPerfumes.length > 0) {
+      await Promise.all(cloudPerfumes.map(p => cloudSaveProduct({ ...p, type: 'perfume' })));
+      await Promise.all(cloudPerfumes.map(p => cloudDeleteCollectionDoc('perfumes', p.id)));
+    }
+    localStorage.setItem(CLOUD_PERFUMES_MIGRATED_FLAG, 'done');
+  } catch (e) {
+    console.warn("Cloud perfumes migration warning (retrying next load):", e);
+  }
+};
 
 let hydrateStarted = false;
 
@@ -106,6 +160,10 @@ const hydrateFromCloud = async () => {
   try {
     if (!isFirebaseConfigured()) return;
 
+    // Merge any legacy Firestore `perfumes` collection into `products` first so
+    // the catalog below sees the complete unified list.
+    await migrateCloudPerfumesToProducts();
+
     const changed = [];
     const needsCatalogSeed = localStorage.getItem(CLOUD_CATALOG_SEED_FLAG) !== 'done';
     let seededAny = false;
@@ -113,7 +171,6 @@ const hydrateFromCloud = async () => {
     // Shared catalog: cloud is authoritative when it has data.
     const catalog = [
       { col: 'products', key: STORAGE_KEYS.PRODUCTS },
-      { col: 'perfumes', key: STORAGE_KEYS.PERFUMES },
       { col: 'braids', key: STORAGE_KEYS.BRAIDS }
     ];
 
@@ -233,22 +290,23 @@ export const dbGetProducts = () => {
 
 export const dbGetPerfumes = () => {
   initDB();
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS.PERFUMES) || '[]');
+  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS) || '[]');
+  return list.filter(p => p.type === 'perfume');
 };
 
 export const dbSaveProduct = (product) => {
   initDB();
-  const key = product.type === 'perfume' ? STORAGE_KEYS.PERFUMES : STORAGE_KEYS.PRODUCTS;
-  const items = JSON.parse(localStorage.getItem(key) || '[]');
-  
+  const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS) || '[]');
+
   const existingIdx = items.findIndex(i => i.id === product.id);
   if (existingIdx >= 0) {
     items[existingIdx] = { ...items[existingIdx], ...product };
   } else {
     items.unshift(product);
   }
-  
-  localStorage.setItem(key, JSON.stringify(items));
+
+  localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(items));
+  window.dispatchEvent(new Event('storage'));
 
   // Sync to Cloud Firestore
   if (isFirebaseConfigured()) {
@@ -258,28 +316,28 @@ export const dbSaveProduct = (product) => {
   return items;
 };
 
-export const dbDeleteProduct = (id, type) => {
+export const dbDeleteProduct = (id) => {
   initDB();
-  const key = type === 'perfume' ? STORAGE_KEYS.PERFUMES : STORAGE_KEYS.PRODUCTS;
-  const items = JSON.parse(localStorage.getItem(key) || '[]');
+  const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS) || '[]');
   const filtered = items.filter(i => i.id !== id);
-  localStorage.setItem(key, JSON.stringify(filtered));
+  localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(filtered));
+  window.dispatchEvent(new Event('storage'));
 
   // Sync delete to Cloud Firestore
   if (isFirebaseConfigured()) {
-    cloudDeleteProduct(id, type);
+    cloudDeleteProduct(id);
   }
 
   return filtered;
 };
 
-export const dbUpdatePrice = (id, newPrice, type) => {
+export const dbUpdatePrice = (id, newPrice) => {
   initDB();
-  const key = type === 'perfume' ? STORAGE_KEYS.PERFUMES : STORAGE_KEYS.PRODUCTS;
-  const items = JSON.parse(localStorage.getItem(key) || '[]');
+  const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS) || '[]');
   const price = Math.max(0, parseFloat(newPrice) || 0);
   const updated = items.map(i => i.id === id ? { ...i, price } : i);
-  localStorage.setItem(key, JSON.stringify(updated));
+  localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(updated));
+  window.dispatchEvent(new Event('storage'));
 
   // Sync the new price back to Firestore (merge keeps the rest of the doc)
   if (isFirebaseConfigured()) {
@@ -363,16 +421,16 @@ export const dbDeleteBraid = (id) => {
   return filtered;
 };
 
-export const dbUpdateStock = (id, newStock, type) => {
+export const dbUpdateStock = (id, newStock) => {
   initDB();
-  const key = type === 'perfume' ? STORAGE_KEYS.PERFUMES : STORAGE_KEYS.PRODUCTS;
-  const items = JSON.parse(localStorage.getItem(key) || '[]');
+  const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS) || '[]');
   const updated = items.map(i => i.id === id ? { ...i, stock: Math.max(0, newStock) } : i);
-  localStorage.setItem(key, JSON.stringify(updated));
+  localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(updated));
+  window.dispatchEvent(new Event('storage'));
 
   // Sync stock update to Cloud Firestore
   if (isFirebaseConfigured()) {
-    cloudUpdateStock(id, newStock, type);
+    cloudUpdateStock(id, newStock);
   }
 
   return updated;
@@ -381,18 +439,16 @@ export const dbUpdateStock = (id, newStock, type) => {
 export const dbDeductStockForOrder = (cartItems) => {
   initDB();
   const products = JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS) || '[]');
-  const perfumes = JSON.parse(localStorage.getItem(STORAGE_KEYS.PERFUMES) || '[]');
 
   cartItems.forEach(cartItem => {
-    let targetList = products.some(p => p.id === cartItem.id) ? products : perfumes;
-    const targetItem = targetList.find(i => i.id === cartItem.id);
+    const targetItem = products.find(i => i.id === cartItem.id);
     if (targetItem) {
       targetItem.stock = Math.max(0, (targetItem.stock || 0) - cartItem.quantity);
     }
   });
 
   localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
-  localStorage.setItem(STORAGE_KEYS.PERFUMES, JSON.stringify(perfumes));
+  window.dispatchEvent(new Event('storage'));
 
   // Sync stock deductions to Cloud Firestore
   if (isFirebaseConfigured()) {

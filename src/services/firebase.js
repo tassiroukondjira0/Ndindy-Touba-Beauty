@@ -154,7 +154,9 @@ export const cloudUpdateOrderStatus = async (id, status) => {
   }
 };
 
-// --- CLOUD FIRESTORE HELPERS: PRODUCTS & PERFUMES ---
+// --- CLOUD FIRESTORE HELPERS: PRODUCTS (care + perfumes unified) ---
+// Everything lives in a single `products` collection. Perfumes are tagged with
+// `type: 'perfume'`; care products have no type (or `type: 'product'`).
 
 // Generic cloud reader: returns every document of a collection (with id).
 // Used to hydrate the localStorage mirror from Firebase on startup.
@@ -187,9 +189,10 @@ export const cloudSetItems = async (colName, items = []) => {
 };
 
 /**
- * Automatically seeds initial products and perfumes to Firestore if collections are empty.
+ * Automatically seeds the initial catalog (care products + perfumes) to the
+ * Firestore `products` collection if it is empty.
  */
-export const cloudSeedProductsIfEmpty = async (initialProducts, initialPerfumes) => {
+export const cloudSeedProductsIfEmpty = async (initialProducts) => {
   if (!isFirebaseConfigured() || !db) return;
   try {
     const prodSnap = await getDocs(collection(db, 'products'));
@@ -202,17 +205,6 @@ export const cloudSeedProductsIfEmpty = async (initialProducts, initialPerfumes)
         }, { merge: true });
       }
     }
-
-    const perfSnap = await getDocs(collection(db, 'perfumes'));
-    if (perfSnap.empty && initialPerfumes && initialPerfumes.length > 0) {
-      console.log("🌱 Auto-seeding initial Perfumes into Firestore...");
-      for (const perf of initialPerfumes) {
-        await setDoc(doc(db, 'perfumes', perf.id), {
-          ...perf,
-          cloudCreatedAt: serverTimestamp()
-        }, { merge: true });
-      }
-    }
   } catch (err) {
     console.warn("⚠️ Cloud products auto-seeding warning:", err.message);
   }
@@ -220,9 +212,8 @@ export const cloudSeedProductsIfEmpty = async (initialProducts, initialPerfumes)
 
 export const cloudSaveProduct = async (product) => {
   if (!isFirebaseConfigured() || !db) return null;
-  const colName = product.type === 'perfume' ? 'perfumes' : 'products';
   try {
-    const docRef = doc(db, colName, product.id);
+    const docRef = doc(db, 'products', product.id);
     const dataToSave = {
       ...product,
       updatedAt: serverTimestamp()
@@ -235,15 +226,27 @@ export const cloudSaveProduct = async (product) => {
   }
 };
 
-export const cloudDeleteProduct = async (id, type) => {
+export const cloudDeleteProduct = async (id) => {
   if (!isFirebaseConfigured() || !db) return false;
-  const colName = type === 'perfume' ? 'perfumes' : 'products';
   try {
-    const docRef = doc(db, colName, id);
+    const docRef = doc(db, 'products', id);
     await deleteDoc(docRef);
     return true;
   } catch (err) {
     console.error(`Error deleting product ${id} from cloud:`, err);
+    return false;
+  }
+};
+
+// Generic single-document delete (used by the one-time perfumes migration to
+// empty the legacy `perfumes` collection after moving its documents).
+export const cloudDeleteCollectionDoc = async (colName, id) => {
+  if (!isFirebaseConfigured() || !db) return false;
+  try {
+    await deleteDoc(doc(db, colName, id));
+    return true;
+  } catch (err) {
+    console.warn(`Error deleting ${colName}/${id} from cloud:`, err);
     return false;
   }
 };
@@ -282,11 +285,10 @@ export const cloudDeleteBraid = async (id) => {
   }
 };
 
-export const cloudUpdateStock = async (id, newStock, type) => {
+export const cloudUpdateStock = async (id, newStock) => {
   if (!isFirebaseConfigured() || !db) return false;
-  const colName = type === 'perfume' ? 'perfumes' : 'products';
   try {
-    const docRef = doc(db, colName, id);
+    const docRef = doc(db, 'products', id);
     await updateDoc(docRef, { 
       stock: Math.max(0, newStock), 
       updatedAt: serverTimestamp() 
@@ -302,8 +304,7 @@ export const cloudDeductStockForOrder = async (cartItems) => {
   if (!isFirebaseConfigured() || !db) return;
   try {
     for (const item of cartItems) {
-      const colName = item.type === 'perfume' ? 'perfumes' : 'products';
-      const docRef = doc(db, colName, item.id);
+      const docRef = doc(db, 'products', item.id);
       const snap = await getDoc(docRef);
       if (snap.exists()) {
         const currentStock = snap.data().stock || 0;
@@ -358,16 +359,18 @@ export const subscribeToCloudBraids = (onUpdate, onError) => {
   }
 };
 
+// Real-time live listener for Perfumes (filtered from the unified `products`
+// collection — the separate Firestore `perfumes` collection no longer exists).
 export const subscribeToCloudPerfumes = (onUpdate, onError) => {
   if (!isFirebaseConfigured() || !db) return () => {};
   try {
-    const q = collection(db, 'perfumes');
+    const q = collection(db, 'products');
     return onSnapshot(q, (snapshot) => {
       const items = [];
       snapshot.forEach(d => {
         items.push({ ...d.data(), id: d.id });
       });
-      onUpdate(items);
+      onUpdate(items.filter(p => p.type === 'perfume'));
     }, (err) => {
       console.warn("Firestore perfumes subscription warning:", err);
       if (onError) onError(err);
