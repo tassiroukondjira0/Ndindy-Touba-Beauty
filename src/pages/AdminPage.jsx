@@ -27,14 +27,16 @@ import {
   dbGetReservations, 
   dbUpdateReservationStatus, 
   dbGetOrders, 
-  dbUpdateOrderStatus 
+  dbUpdateOrderStatus,
+  dbGetReviews
 } from '../services/db';
 import {
   isFirebaseConfigured,
   subscribeToCloudReservations,
   subscribeToCloudOrders,
   subscribeToCloudProducts,
-  subscribeToCloudAdmin
+  subscribeToCloudAdmin,
+  subscribeToCloudReviews
 } from '../services/firebase';
 import { 
   getAdminNotifications, 
@@ -164,6 +166,7 @@ export const AdminPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [reservations, setReservations] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [products, setProducts] = useState([]);
   const [braids, setBraids] = useState([]);
 
@@ -239,6 +242,7 @@ export const AdminPage = () => {
     // cloud subscription) are never wiped by a local-only refresh.
     setReservations(prev => mergeById(prev, dbGetReservations()));
     setOrders(prev => mergeById(prev, dbGetOrders()));
+    setReviews(dbGetReviews());
     setProducts(dbGetProducts());
     setBraids(dbGetBraids());
 
@@ -319,10 +323,17 @@ export const AdminPage = () => {
       }
     });
 
+    const unsubReviews = subscribeToCloudReviews((cloudReviews) => {
+      if (cloudReviews) {
+        setReviews(cloudReviews);
+      }
+    });
+
     return () => {
       if (unsubRes) unsubRes();
       if (unsubOrders) unsubOrders();
       if (unsubProducts) unsubProducts();
+      if (unsubReviews) unsubReviews();
     };
   }, [currentSession]);
 
@@ -912,6 +923,19 @@ export const AdminPage = () => {
             🛒 {t('admin_tab_short_orders')} ({orders.length})
           </button>
           <button
+            onClick={() => setActiveTab('reviews')}
+            style={{
+              padding: '10px 24px',
+              borderRadius: '20px',
+              fontWeight: 700,
+              backgroundColor: activeTab === 'reviews' ? 'var(--gold-primary)' : 'rgba(255,255,255,0.04)',
+              color: activeTab === 'reviews' ? '#000' : 'var(--text-main)',
+              border: activeTab === 'reviews' ? 'none' : '1px solid rgba(212,175,55,0.2)'
+            }}
+          >
+            ⭐ {t('admin_tab_short_reviews')} ({reviews.length})
+          </button>
+          <button
             onClick={() => setActiveTab('profile')}
             style={{
               padding: '10px 24px',
@@ -1215,7 +1239,51 @@ export const AdminPage = () => {
           </div>
         )}
 
-        {/* TAB 4: OWNER ADMIN PROFILE */}
+        {/* TAB 5: REVIEWS */}
+        {activeTab === 'reviews' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <h3 className="font-serif text-gold" style={{ fontSize: '1.6rem', margin: 0 }}>{t('admin_reviews_title')}</h3>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>({reviews.length})</span>
+            </div>
+
+            {reviews.length === 0 ? (
+              <div className="glass-card" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                {t('admin_reviews_empty')}
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+                {reviews.map(review => (
+                  <div key={review.id} className="glass-card" style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#fff', fontSize: '1rem' }}>{review.name || t('client_account_menu')}</div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : '—'}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', color: '#FFD700' }}>
+                        {[...Array(5)].map((_, i) => (
+                          <span key={i} style={{ opacity: i < (review.rating || 5) ? 1 : 0.25 }}>★</span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: '0.94rem', color: 'var(--text-main)', lineHeight: 1.6, padding: '12px 0', borderTop: '1px solid rgba(212,175,55,0.12)', borderBottom: '1px solid rgba(212,175,55,0.12)' }}>
+                      “{review.comment}”
+                    </div>
+
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      {review.clientUid ? `UID: ${review.clientUid}` : t('review_verified')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 6: OWNER ADMIN PROFILE */}
         {activeTab === 'profile' && adminAccount && (
           <div className="glass-card" style={{ maxWidth: '600px', padding: '30px' }}>
             <h3 className="font-serif text-gold" style={{ fontSize: '1.6rem', marginBottom: '20px' }}>{t('admin_profile_title')}</h3>
