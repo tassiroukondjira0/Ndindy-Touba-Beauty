@@ -34,6 +34,64 @@ const STORAGE_KEYS = {
   ORDERS: 'touba_ndindy_orders'
 };
 
+const LOCAL_CLIENT_NAMES_TO_REMOVE = ['tassirou kondjira', 'seny drame', 'sény dramé'];
+
+const normalizeLocalName = (value = '') => value
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .trim()
+  .toLowerCase()
+  .replace(/\s+/g, ' ');
+
+const isLocalTargetClient = (record) => {
+  const names = [record?.fullName, record?.name, record?.clientName, `${record?.firstName || ''} ${record?.lastName || ''}`];
+  return names.some(name => LOCAL_CLIENT_NAMES_TO_REMOVE.includes(normalizeLocalName(name)));
+};
+
+const cleanupRequestedLocalClientData = () => {
+  try {
+    const reservations = JSON.parse(localStorage.getItem(STORAGE_KEYS.RESERVATIONS) || '[]');
+    const orders = JSON.parse(localStorage.getItem(STORAGE_KEYS.ORDERS) || '[]');
+    const reviews = JSON.parse(localStorage.getItem(STORAGE_KEYS.REVIEWS) || '[]');
+    const removedReferenceIds = new Set([
+      ...reservations.filter(isLocalTargetClient).map(item => item.id),
+      ...orders.filter(isLocalTargetClient).map(item => item.id)
+    ]);
+
+    localStorage.setItem(STORAGE_KEYS.RESERVATIONS, JSON.stringify(reservations.filter(item => !isLocalTargetClient(item))));
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders.filter(item => !isLocalTargetClient(item))));
+    localStorage.setItem(STORAGE_KEYS.REVIEWS, JSON.stringify(reviews.filter(item => !isLocalTargetClient(item))));
+
+    const trackedRefs = JSON.parse(localStorage.getItem('touba_ndindy_my_refs') || '[]');
+    localStorage.setItem('touba_ndindy_my_refs', JSON.stringify(
+      trackedRefs.filter(item => !removedReferenceIds.has(item.referenceId))
+    ));
+
+    const clientNotifications = JSON.parse(localStorage.getItem('touba_ndindy_client_notifications') || '[]');
+    localStorage.setItem('touba_ndindy_client_notifications', JSON.stringify(
+      clientNotifications.filter(item => !removedReferenceIds.has(item.referenceId))
+    ));
+
+    const adminNotifications = JSON.parse(localStorage.getItem('touba_ndindy_admin_notifications') || '[]');
+    localStorage.setItem('touba_ndindy_admin_notifications', JSON.stringify(
+      adminNotifications.filter(item => !removedReferenceIds.has(item.referenceId))
+    ));
+
+    const clientSession = JSON.parse(localStorage.getItem('touba_ndindy_client_session') || 'null');
+    if (clientSession && isLocalTargetClient(clientSession)) {
+      localStorage.removeItem('touba_ndindy_client_session');
+    }
+
+    const adminAccount = JSON.parse(localStorage.getItem('touba_ndindy_admin_account') || 'null');
+    if (adminAccount && isLocalTargetClient(adminAccount)) {
+      localStorage.removeItem('touba_ndindy_admin_account');
+      localStorage.removeItem('touba_ndindy_admin_session');
+    }
+  } catch {
+    // Best-effort local cleanup; never block application startup.
+  }
+};
+
 const initialProducts = productsData.map(p => ({
   ...p,
   stock: p.stock !== undefined ? p.stock : Math.floor(Math.random() * 10) + 8
@@ -81,6 +139,8 @@ export const initDB = () => {
   if (!localStorage.getItem(STORAGE_KEYS.ORDERS)) {
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify([]));
   }
+
+  cleanupRequestedLocalClientData();
 
   // One-time cleanup: fold any legacy `perfumes` list into the unified catalog.
   migrateLegacyPerfumeStorage();
