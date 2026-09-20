@@ -3,8 +3,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAdminSession } from '../hooks/useAdminSession';
 import { 
   searchClientReservationsAndOrders, 
-  getClientTrackedRecords,
-  dbAttachReceipt
+  getClientTrackedRecords
 } from '../services/db';
 import { 
   Search, 
@@ -41,8 +40,6 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
   const [hasRecent, setHasRecent] = useState(false);
   const [receiptRef, setReceiptRef] = useState('');
   const [receiptPhone, setReceiptPhone] = useState('');
-  const [receiptFile, setReceiptFile] = useState(null);
-  const [receiptPreview, setReceiptPreview] = useState('');
   const [receiptVerification, setReceiptVerification] = useState(null);
 
   // Load auto-tracked items on this device on mount
@@ -226,32 +223,12 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
     window.print();
   };
 
-  const handleReceiptUpload = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      setReceiptFile(null);
-      setReceiptPreview('');
-      return;
-    }
-
-    setReceiptFile(file);
-    const reader = new FileReader();
-    reader.onload = () => setReceiptPreview(String(reader.result || ''));
-
-    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-      reader.readAsDataURL(file);
-      return;
-    }
-
-    reader.readAsDataURL(file);
-  };
-
   const handleReceiptVerification = async () => {
     const ref = receiptRef.trim();
     const phone = receiptPhone.trim();
 
-    if (!ref || !phone || !receiptFile) {
-      setReceiptVerification({ ok: false, message: language === 'fr' ? 'La référence, le téléphone et le reçu sont obligatoires.' : 'Reference, phone and receipt are required.' });
+    if (!ref && !phone) {
+      setReceiptVerification({ ok: false, message: language === 'fr' ? 'Entrez une référence ou un numéro de téléphone.' : 'Enter a reference or phone number.' });
       return;
     }
 
@@ -268,14 +245,13 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
       if (matches.length > 0) {
         const record = matches[0];
         const type = record.braidTitle ? 'reservation' : 'order';
-        const savedRecord = await dbAttachReceipt({ type, id: record.id, file: receiptFile, fallbackRecord: record });
         setReceiptVerification({
           ok: true,
           type,
           message: language === 'fr'
-            ? `✅ Reçu vérifié et associé à ${record.id}.`
-            : `✅ Receipt verified and attached to ${record.id}.`,
-          record: savedRecord
+            ? `✅ ${type === 'reservation' ? 'Réservation' : 'Commande'} vérifiée : ${record.id}.`
+            : `✅ ${type === 'reservation' ? 'Reservation' : 'Order'} verified: ${record.id}.`,
+          record
         });
       } else {
         setReceiptVerification({
@@ -407,7 +383,7 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
               <FileText size={20} color="var(--gold-primary)" />
               <h3 className="font-serif text-gold" style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>
-                {language === 'fr' ? 'Vérification de reçu de confirmation' : 'Confirmation Receipt Verification'}
+                {language === 'fr' ? 'Vérifier une réservation ou une commande' : 'Verify a reservation or order'}
               </h3>
             </div>
 
@@ -416,7 +392,7 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
                 type="text"
                 value={receiptRef}
                 onChange={e => setReceiptRef(e.target.value)}
-                placeholder={language === 'fr' ? 'Référence (TN-... / CMD-...)' : 'Reference (TN-... / CMD-...)'}
+                placeholder={language === 'fr' ? 'Numéro de référence (TN-... / CMD-...)' : 'Reference number (TN-... / CMD-...)'}
                 style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }}
               />
               <input
@@ -428,28 +404,6 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
               />
             </div>
 
-            <div style={{ marginBottom: '18px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                {language === 'fr' ? 'Téléverser le reçu de confirmation' : 'Upload the confirmation receipt'}
-              </label>
-              <input
-                type="file"
-                accept="image/*,.pdf"
-                onChange={handleReceiptUpload}
-                style={{ color: 'var(--text-muted)', width: '100%' }}
-              />
-            </div>
-
-            {receiptPreview && (
-              <div style={{ marginBottom: '18px', padding: '12px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(212,175,55,0.2)' }}>
-                {receiptPreview.toLowerCase().includes('pdf') ? (
-                  <div style={{ color: 'var(--gold-light)', fontWeight: 600 }}>{language === 'fr' ? 'Fichier PDF reçu' : 'Uploaded PDF receipt'}</div>
-                ) : (
-                  <img src={receiptPreview} alt="Receipt preview" style={{ maxWidth: '100%', maxHeight: '240px', borderRadius: '10px', objectFit: 'contain' }} />
-                )}
-              </div>
-            )}
-
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
               <button
                 type="button"
@@ -457,16 +411,14 @@ export const ClientTrackingPage = ({ initialQuery = '', onOpenBooking, navigateT
                 className="bg-gold-gradient"
                 style={{ padding: '12px 22px', borderRadius: '24px', fontWeight: 700, cursor: 'pointer' }}
               >
-                {language === 'fr' ? 'Vérifier le reçu' : 'Verify receipt'}
+                {language === 'fr' ? 'Vérifier' : 'Verify'}
               </button>
-              {(receiptRef || receiptPhone || receiptPreview) && (
+              {(receiptRef || receiptPhone) && (
                 <button
                   type="button"
                   onClick={() => {
                     setReceiptRef('');
                     setReceiptPhone('');
-                    setReceiptFile(null);
-                    setReceiptPreview('');
                     setReceiptVerification(null);
                   }}
                   style={{ padding: '12px 18px', borderRadius: '24px', backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(212,175,55,0.25)', color: '#fff', cursor: 'pointer' }}
