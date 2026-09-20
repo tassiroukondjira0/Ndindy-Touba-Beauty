@@ -558,12 +558,13 @@ export const cloudLoginAdmin = async (email, password) => {
   }
 
   if (authSuccess) {
-    return {
-      email,
-      firstName: 'Administrateur',
-      lastName: 'Touba Ndindy',
-      role: 'admin'
-    };
+    // Firebase Auth credentials alone do not grant admin access. The linked
+    // Firestore admin profile must still exist.
+    try {
+      await signOut(auth);
+    } catch (signOutErr) {
+      console.warn("Firebase Auth cleanup after missing admin profile:", signOutErr.message);
+    }
   }
 
   return null;

@@ -269,6 +269,13 @@ export const loginAdminAccountAsync = async (email, password) => {
     } catch (e) {
       console.warn("Cloud login warning:", e);
     }
+
+    // Do not authenticate against a stale local admin record when the cloud
+    // admin profile has been deleted.
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    notifyAdminSessionChanged();
+    throw new Error("Ce compte administrateur n'existe pas.");
   }
 
   // 2. Fallback to local account check
