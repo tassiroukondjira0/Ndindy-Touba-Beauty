@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useClientAuth } from '../context/ClientAuthContext';
-import { hasAdminAccount } from '../services/auth';
+import { hasAdminAccountAsync } from '../services/auth';
 import { useAdminSession } from '../hooks/useAdminSession';
 import { ClientNotificationBell } from './ClientNotificationBell';
 import { getAdminNotifications, getUnreadAdminNotifCount, markAdminNotifsAsRead } from '../services/notifications';
@@ -12,7 +12,8 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
   const { clientUser, authEnabled, authLoading, openAuth, signOutClient } = useClientAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const isAdminLoggedIn = useAdminSession();
-  const [accountCreated, setAccountCreated] = useState(false);
+  // null means that local and cloud account detection is still in progress.
+  const [accountCreated, setAccountCreated] = useState(null);
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 1024px)').matches);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [adminNotifs, setAdminNotifs] = useState([]);
@@ -46,7 +47,25 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
   }, [isAdminLoggedIn]);
 
   useEffect(() => {
-    setAccountCreated(hasAdminAccount());
+    let active = true;
+
+    const refreshAdminAccount = async () => {
+      try {
+        const exists = await hasAdminAccountAsync();
+        if (active) setAccountCreated(exists);
+      } catch (error) {
+        // Keep setup hidden when the cloud check is unavailable. A visitor can
+        // still use the public client experience without seeing admin setup.
+        if (active) setAccountCreated(true);
+      }
+    };
+
+    refreshAdminAccount();
+    window.addEventListener('storage', refreshAdminAccount);
+    return () => {
+      active = false;
+      window.removeEventListener('storage', refreshAdminAccount);
+    };
   }, [currentPath]);
 
   useEffect(() => {
@@ -71,7 +90,7 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
   // ONLY show Admin tab if admin is ALREADY logged in, or if no account exists yet (first setup)
   if (isAdminLoggedIn) {
     navItems.push({ path: '/admin', label: t('nav_admin') });
-  } else if (!accountCreated) {
+  } else if (accountCreated === false) {
     navItems.push({ path: '/admin', label: t('nav_initial_setup') });
   }
 
