@@ -5,7 +5,8 @@ import {
   cloudGetClientProfile,
   cloudCreateClientProfile,
   cloudGetAdminAccount,
-  cloudUpdateClientSession
+  cloudUpdateClientSession,
+  authPersistenceReady
 } from '../services/firebase';
 import {
   createUserWithEmailAndPassword,
@@ -143,6 +144,7 @@ export const ClientAuthProvider = ({ children }) => {
   const signIn = async (email, password) => {
     if (!isFirebaseConfigured() || !auth) return { error: 'client_error_offline' };
     try {
+      await authPersistenceReady;
       const userCred = await signInWithEmailAndPassword(auth, (email || '').trim().toLowerCase(), password);
       const profile = await resolveUserFromAuth(userCred.user);
       completeAuth(profile, true);
@@ -156,6 +158,7 @@ export const ClientAuthProvider = ({ children }) => {
   const signUp = async ({ fullName, email, phone, password }) => {
     if (!isFirebaseConfigured() || !auth) return { error: 'client_error_offline' };
     try {
+      await authPersistenceReady;
       const userCred = await createUserWithEmailAndPassword(auth, (email || '').trim().toLowerCase(), password);
       const firebaseUser = userCred.user;
       if (firebaseUser) {

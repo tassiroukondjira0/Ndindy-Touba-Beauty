@@ -5,7 +5,8 @@ import {
   cloudLoginAdmin,
   cloudChangeAdminPassword,
   cloudUpdateAdminSession,
-  auth
+  auth,
+  authPersistenceReady
 } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { readStoredSession, refreshSession, writeSession } from './session';
@@ -265,6 +266,7 @@ export const loginAdminAccountAsync = async (email, password) => {
   // 1. Check Cloud Firestore / Firebase Auth first if configured
   if (isFirebaseConfigured()) {
     try {
+      await authPersistenceReady;
       const cloudAdmin = await cloudLoginAdmin(cleanEmail, password);
       if (cloudAdmin) {
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(cloudAdmin));
