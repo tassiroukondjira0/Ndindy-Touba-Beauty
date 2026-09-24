@@ -201,7 +201,7 @@ export const AdminPage = () => {
   const [editingBraidId, setEditingBraidId] = useState(null);
   const [braidForm, setBraidForm] = useState({
     title_fr: '', title_en: '', category: 'knotless', price: '', duration: '',
-    image: '/assets/', description_fr: '', description_en: '', featured: false
+    image: '', description_fr: '', description_en: '', featured: false
   });
 
   const setBraidField = (field, value) => {
@@ -510,7 +510,7 @@ export const AdminPage = () => {
     setIsBraidModalOpen(false);
     setBraidForm({
       title_fr: '', title_en: '', category: 'knotless', price: '', duration: '',
-      image: '/assets/', description_fr: '', description_en: '', featured: false
+      image: '', description_fr: '', description_en: '', featured: false
     });
   };
 
@@ -701,17 +701,17 @@ export const AdminPage = () => {
     <div style={{ paddingTop: '140px', paddingBottom: '100px' }}>
       <div className="section-container">
         {/* Header Bar with Notifications Bell */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', marginBottom: '40px', position: 'relative' }}>
+        <div className="admin-dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', marginBottom: '40px', position: 'relative' }}>
           <div>
             <div className="tag-badge" style={{ marginBottom: '8px' }}>
               <span>{t('admin_header_badge')}</span>
             </div>
-            <h1 className="font-serif text-gold" style={{ fontSize: '2.4rem', fontWeight: 700 }}>
+            <h1 className="font-serif text-gold" style={{ fontSize: 'clamp(1.8rem, 4vw, 2.4rem)', fontWeight: 700, overflowWrap: 'anywhere' }}>
               {t('admin_welcome')} {adminAccount ? adminAccount.firstName : ''} {adminAccount ? adminAccount.lastName : ''}
             </h1>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div className="admin-dashboard-actions" style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
             {/* Browser Push Notification Toggle */}
             {notifPermission !== 'granted' && notifPermission !== 'unsupported' && (
               <button
@@ -1179,7 +1179,7 @@ export const AdminPage = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h3 className="font-serif text-gold" style={{ fontSize: '1.5rem' }}>{t('admin_braids_title')}</h3>
               <button
-                onClick={() => { setEditingBraidId(null); setBraidForm({ title_fr: '', title_en: '', category: 'knotless', price: '', duration: '', image: '/assets/', description_fr: '', description_en: '', featured: false }); setIsBraidModalOpen(true); }}
+                onClick={() => { setEditingBraidId(null); setBraidForm({ title_fr: '', title_en: '', category: 'knotless', price: '', duration: '', image: '', description_fr: '', description_en: '', featured: false }); setIsBraidModalOpen(true); }}
                 className="bg-gold-gradient"
                 style={{ padding: '10px 20px', borderRadius: '30px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}
               >
@@ -1215,7 +1215,7 @@ export const AdminPage = () => {
 
                     <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(212,175,55,0.15)', paddingTop: '12px' }}>
                       <button
-                        onClick={() => { setEditingBraidId(b.id); setBraidForm({ title_fr: b.title_fr || '', title_en: b.title_en || '', category: b.category || 'knotless', price: String(b.price ?? ''), duration: b.duration || '', image: b.image || '/assets/', description_fr: b.description_fr || '', description_en: b.description_en || '', featured: !!b.featured }); setIsBraidModalOpen(true); }}
+                        onClick={() => { setEditingBraidId(b.id); setBraidForm({ title_fr: b.title_fr || '', title_en: b.title_en || '', category: b.category || 'knotless', price: String(b.price ?? ''), duration: b.duration || '', image: b.image || '', description_fr: b.description_fr || '', description_en: b.description_en || '', featured: !!b.featured }); setIsBraidModalOpen(true); }}
                         style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--gold-light)', fontSize: '0.85rem', fontWeight: 600 }}
                       >
                         <Edit size={15} />

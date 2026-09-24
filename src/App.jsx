@@ -15,6 +15,7 @@ import { BookingModal } from './components/BookingModal';
 import { CartDrawer } from './components/CartDrawer';
 import { ClientNotificationWatcher } from './components/ClientNotificationWatcher';
 import { ClientAuthModal } from './components/ClientAuthModal';
+import { mergeCloudNotifications } from './services/notifications';
 import {
   isFirebaseConfigured,
   subscribeToCloudProducts,
@@ -65,7 +66,7 @@ export const AppContent = () => {
     const unsubReservations = subscribeToCloudReservations((items) => syncCollectionToLocalStorage('touba_ndindy_reservations', items));
     const unsubOrders = subscribeToCloudOrders((items) => syncCollectionToLocalStorage('touba_ndindy_orders', items));
     const unsubReviews = subscribeToCloudReviews((items) => syncCollectionToLocalStorage('touba_ndindy_reviews', items));
-    const unsubNotifications = subscribeToCloudNotifications((items) => syncCollectionToLocalStorage('touba_ndindy_admin_notifications', items));
+    const unsubNotifications = subscribeToCloudNotifications((items) => mergeCloudNotifications(items));
 
     return () => {
       unsubProducts();
