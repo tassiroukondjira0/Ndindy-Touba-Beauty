@@ -17,15 +17,15 @@ export const getAppLanguage = () => {
   }
 };
 
-// Small bilingual text helper for notifications generated outside React.
-export const biText = (fr, en) => (getAppLanguage() === 'en' ? en : fr);
+// Notifications use English independently from the interface language.
+export const biText = (fr, en) => en;
 
 // Returns the notification text (title or message) in the active UI language
 // when a bilingual version was stored, otherwise falls back to the plain text.
 export const getNotifText = (notif, field, lang) => {
   if (!notif) return '';
   const i18n = notif[`${field}_i18n`];
-  if (i18n && i18n[lang]) return i18n[lang];
+  if (i18n && i18n.en) return i18n.en;
   return notif[field] || '';
 };
 
@@ -90,7 +90,7 @@ export const addAdminNotification = ({ type, title, message, titleI18n, messageI
 
   initNotifications();
   const notifs = JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_NOTIFS) || '[]');
-  const lang = getAppLanguage();
+  const lang = 'en';
   const newNotif = {
     id: 'notif-' + Date.now(),
     type,
@@ -135,7 +135,7 @@ export const addClientNotification = ({ id, referenceId, recipientPhone, recipie
   initNotifications();
   const notifs = JSON.parse(localStorage.getItem(STORAGE_KEYS.CLIENT_NOTIFS) || '[]');
   if (id && notifs.some(n => n.id === id)) return notifs.find(n => n.id === id);
-  const lang = getAppLanguage();
+  const lang = 'en';
   const newNotif = {
     id: id || 'cnotif-' + Date.now(),
     referenceId,
