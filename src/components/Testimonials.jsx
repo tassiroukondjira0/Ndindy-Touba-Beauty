@@ -53,9 +53,7 @@ export const Testimonials = () => {
     let unsub = () => {};
     if (isFirebaseConfigured()) {
       unsub = subscribeToCloudReviews((cloudReviews) => {
-        if (cloudReviews && cloudReviews.length > 0) {
-          setReviews(cloudReviews);
-        }
+        setReviews(cloudReviews || []);
       });
     }
 

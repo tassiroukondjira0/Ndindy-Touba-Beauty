@@ -315,27 +315,19 @@ export const AdminPage = () => {
     if (!currentSession || !isFirebaseConfigured()) return;
 
     const unsubRes = subscribeToCloudReservations((cloudReservations) => {
-      if (cloudReservations && cloudReservations.length > 0) {
-        setReservations(cloudReservations);
-      }
+      setReservations(cloudReservations || []);
     });
 
     const unsubOrders = subscribeToCloudOrders((cloudOrders) => {
-      if (cloudOrders && cloudOrders.length > 0) {
-        setOrders(cloudOrders);
-      }
+      setOrders(cloudOrders || []);
     });
 
     const unsubProducts = subscribeToCloudProducts((cloudProducts) => {
-      if (cloudProducts && cloudProducts.length > 0) {
-        setProducts(cloudProducts);
-      }
+      setProducts(cloudProducts || []);
     });
 
     const unsubReviews = subscribeToCloudReviews((cloudReviews) => {
-      if (cloudReviews) {
-        setReviews(cloudReviews);
-      }
+      setReviews(cloudReviews || []);
     });
 
     return () => {

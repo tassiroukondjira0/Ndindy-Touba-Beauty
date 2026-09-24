@@ -15,7 +15,6 @@ import { BookingModal } from './components/BookingModal';
 import { CartDrawer } from './components/CartDrawer';
 import { ClientNotificationWatcher } from './components/ClientNotificationWatcher';
 import { ClientAuthModal } from './components/ClientAuthModal';
-import { mergeCloudNotifications } from './services/notifications';
 import {
   isFirebaseConfigured,
   subscribeToCloudProducts,
@@ -45,13 +44,10 @@ export const AppContent = () => {
 
     const syncCollectionToLocalStorage = (key, items) => {
       const existing = JSON.parse(localStorage.getItem(key) || '[]');
-      const map = new Map();
-      existing.forEach(item => map.set(item.id, item));
-      items.forEach(item => map.set(item.id, item));
-      const merged = Array.from(map.values());
-      const changed = JSON.stringify(existing) !== JSON.stringify(merged);
+      const synced = Array.isArray(items) ? items : [];
+      const changed = JSON.stringify(existing) !== JSON.stringify(synced);
       if (changed) {
-        localStorage.setItem(key, JSON.stringify(merged));
+        localStorage.setItem(key, JSON.stringify(synced));
         window.dispatchEvent(new Event('storage'));
         if (isAdminLoggedIn) {
           setAdminSyncToast('Mise à jour détectée depuis la base de données');
@@ -66,7 +62,7 @@ export const AppContent = () => {
     const unsubReservations = subscribeToCloudReservations((items) => syncCollectionToLocalStorage('touba_ndindy_reservations', items));
     const unsubOrders = subscribeToCloudOrders((items) => syncCollectionToLocalStorage('touba_ndindy_orders', items));
     const unsubReviews = subscribeToCloudReviews((items) => syncCollectionToLocalStorage('touba_ndindy_reviews', items));
-    const unsubNotifications = subscribeToCloudNotifications((items) => mergeCloudNotifications(items));
+    const unsubNotifications = subscribeToCloudNotifications((items) => syncCollectionToLocalStorage('touba_ndindy_client_notifications', items));
 
     return () => {
       unsubProducts();

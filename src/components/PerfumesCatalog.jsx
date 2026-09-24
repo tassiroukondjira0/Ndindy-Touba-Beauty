@@ -20,9 +20,7 @@ export const PerfumesCatalog = ({ onAddToCart }) => {
     let unsub = () => {};
     if (isFirebaseConfigured()) {
       unsub = subscribeToCloudPerfumes((cloudPerfumes) => {
-        if (cloudPerfumes && cloudPerfumes.length > 0) {
-          setPerfumes(cloudPerfumes);
-        }
+        setPerfumes(cloudPerfumes || []);
       });
     }
 

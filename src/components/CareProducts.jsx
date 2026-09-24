@@ -20,9 +20,7 @@ export const CareProducts = ({ onAddToCart }) => {
     let unsub = () => {};
     if (isFirebaseConfigured()) {
       unsub = subscribeToCloudProducts((cloudProducts) => {
-        if (cloudProducts && cloudProducts.length > 0) {
-          setProducts(cloudProducts);
-        }
+        setProducts(cloudProducts || []);
       });
     }
 

@@ -18,9 +18,7 @@ export const BraidsCatalog = ({ onSelectBraidForBooking }) => {
     let unsub = () => {};
     if (isFirebaseConfigured()) {
       unsub = subscribeToCloudBraids((cloudBraids) => {
-        if (cloudBraids && cloudBraids.length > 0) {
-          setBraids(cloudBraids);
-        }
+        setBraids(cloudBraids || []);
       });
     }
 
