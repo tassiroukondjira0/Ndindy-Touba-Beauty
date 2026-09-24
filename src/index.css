@@ -92,6 +92,12 @@ img {
   transition: all 0.35s ease;
 }
 
+.brand-text {
+  min-width: 0;
+  max-width: 250px;
+  overflow: hidden;
+}
+
 .glass-card:hover {
   border-color: rgba(212, 175, 55, 0.5);
   box-shadow: var(--shadow-gold);

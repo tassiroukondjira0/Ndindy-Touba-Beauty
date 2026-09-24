@@ -173,11 +173,11 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
             <Sparkles size={22} color="#0b0a0e" />
           </div>
           <div className="brand-text">
-            <div className="font-serif text-gold" style={{ fontSize: '1.35rem', fontWeight: 700, lineHeight: 1.1, letterSpacing: '0.02em' }}>
-              Touba Ndindy African Hair Braiding Plus L.L.C
+            <div className="font-serif text-gold" style={{ fontSize: '1.35rem', fontWeight: 700, lineHeight: 1.05, letterSpacing: '0.02em' }}>
+              Touba Ndindy
             </div>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              Salon de coiffure africain
+            <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', letterSpacing: '0.08em', lineHeight: 1.2, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+              African Hair Braiding Plus L.L.C
             </div>
           </div>
         </button>
