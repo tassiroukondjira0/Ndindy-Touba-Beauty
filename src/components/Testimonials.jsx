@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useClientAuth } from '../context/ClientAuthContext';
+import { getClientDisplayName } from '../utils/clientName';
 import { dbGetReviews, dbAddReview } from '../services/db';
 import { isFirebaseConfigured, subscribeToCloudReviews } from '../services/firebase';
 import { Star, Quote, Sparkles, PenLine, User } from 'lucide-react';
@@ -85,7 +86,7 @@ export const Testimonials = () => {
     const clean = comment.trim();
     if (!clean || !clientUser) return;
 
-    const name = clientUser.fullName || clientUser.firstName || clientUser.email || t('client_account_menu');
+    const name = getClientDisplayName(clientUser, t('client_account_menu'));
     dbAddReview({
       clientUid: clientUser.uid,
       name,
@@ -173,7 +174,7 @@ export const Testimonials = () => {
 
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <User size={14} color="var(--gold-primary)" />
-                    <span>{clientUser.fullName || clientUser.firstName || clientUser.email}</span>
+                    <span>{getClientDisplayName(clientUser)}</span>
                   </div>
 
                   <div style={{ marginBottom: '18px' }}>

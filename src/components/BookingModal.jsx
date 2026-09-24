@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useClientAuth } from '../context/ClientAuthContext';
+import { getClientDisplayName } from '../utils/clientName';
 import { dbAddReservation, dbGetBraids } from '../services/db';
 import { trackMyReference } from '../services/notifications';
 import { X, CheckCircle2, Sparkles, Printer } from 'lucide-react';
@@ -37,7 +38,7 @@ export const BookingModal = ({ isOpen, onClose, preselectedBraid, navigateTo }) 
   // Prefill booking info from the connected client account.
   useEffect(() => {
     if (!clientUser) return;
-    setName(prev => prev || clientUser.fullName || clientUser.firstName || '');
+    setName(prev => prev || getClientDisplayName(clientUser));
     setPhone(prev => prev || clientUser.phone || '');
     setEmail(prev => prev || clientUser.email || '');
   }, [clientUser]);

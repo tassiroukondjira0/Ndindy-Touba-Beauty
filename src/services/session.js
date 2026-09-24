@@ -11,6 +11,7 @@ export const createSession = (profile = {}) => {
   const now = Date.now();
   return {
     ...profile,
+    remembered: true,
     sessionToken: createToken(),
     lastActiveAt: new Date(now).toISOString(),
     expiresAt: new Date(now + SESSION_DURATION_MS).toISOString()
@@ -44,7 +45,14 @@ export const readValidSession = (storageKey) => {
 export const readStoredSession = (storageKey) => {
   try {
     const raw = localStorage.getItem(storageKey);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    if (!session.remembered) {
+      const migrated = { ...session, remembered: true };
+      localStorage.setItem(storageKey, JSON.stringify(migrated));
+      return migrated;
+    }
+    return session;
   } catch {
     localStorage.removeItem(storageKey);
     return null;
@@ -69,10 +77,14 @@ export const writeSession = (storageKey, profile) => {
 };
 
 export const refreshSession = (storageKey, profile) => {
-  const existing = readValidSession(storageKey);
+  // Never throw away an existing "remember me" session while refreshing it:
+  // the stored token is preserved (and the expiry pushed back) so a returning
+  // visitor stays signed in without retyping his credentials.
+  const existing = readStoredSession(storageKey);
   const now = Date.now();
   const session = {
     ...profile,
+    remembered: true,
     sessionToken: existing?.sessionToken || createToken(),
     lastActiveAt: new Date(now).toISOString(),
     expiresAt: new Date(now + SESSION_DURATION_MS).toISOString()

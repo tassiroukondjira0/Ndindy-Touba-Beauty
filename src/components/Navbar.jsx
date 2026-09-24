@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useClientAuth } from '../context/ClientAuthContext';
+import { getClientDisplayName } from '../utils/clientName';
 import { hasAdminAccountAsync } from '../services/auth';
 import { useAdminSession } from '../hooks/useAdminSession';
 import { ClientNotificationBell } from './ClientNotificationBell';
@@ -367,7 +368,7 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 6px 5px 14px', borderRadius: '22px', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(212, 175, 55, 0.25)' }}>
                 <User size={15} color="var(--gold-primary)" />
                 <span style={{ fontSize: '0.8rem', fontWeight: 600, maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {clientUser.fullName || clientUser.firstName || t('client_account_menu')}
+                  {getClientDisplayName(clientUser, t('client_account_menu'))}
                 </span>
                 <button
                   onClick={signOutClient}
@@ -490,7 +491,7 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '22px', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(212, 175, 55, 0.25)' }}>
                     <User size={15} color="var(--gold-primary)" />
                     <span style={{ fontSize: '0.85rem', fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {clientUser.fullName || clientUser.firstName || t('client_account_menu')}
+                      {getClientDisplayName(clientUser, t('client_account_menu'))}
                     </span>
                     <button
                       onClick={signOutClient}

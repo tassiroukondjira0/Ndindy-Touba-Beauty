@@ -59,21 +59,34 @@ const mapAuthError = (err) => {
 };
 
 export const ClientAuthProvider = ({ children }) => {
-  const [clientUser, setClientUser] = useState(() => (isFirebaseConfigured() ? getCachedSession() : null));
+  // Always rehydrate the session cached in this browser, so a client who signed
+  // in once is recognised again as soon as the site is reopened.
+  const [clientUser, setClientUser] = useState(() => getCachedSession());
   const [authLoading, setAuthLoading] = useState(isFirebaseConfigured());
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState('login');
   const pendingResumeRef = useRef(null);
 
+  // Keeps the client session cached in this browser alive: the same token is
+  // reused and its expiry pushed back, so a client who signed in once is
+  // recognised again on every visit until he explicitly signs out.
+  const restoreCachedClient = (cached, firebaseUser) => {
+    if (!cached || cached.role !== 'client') return null;
+    if (firebaseUser && cached.uid && cached.uid !== firebaseUser.uid) return null;
+    const renewed = firebaseUser ? { ...cached, uid: cached.uid || firebaseUser.uid } : cached;
+    persistSession(renewed);
+    return renewed;
+  };
+
   const resolveUserFromAuth = useCallback(async (firebaseUser) => {
+    const cached = getCachedSession();
+
     if (!firebaseUser) {
       // Firebase can emit a transient null state while restoring its persisted
       // browser session after a page reload. Keep the verified client cache
       // until an explicit sign-out clears it.
-      const cached = getCachedSession();
-      return cached && cached.role === 'client' ? cached : null;
+      return restoreCachedClient(cached, null);
     }
-    const cached = getCachedSession();
 
     // A client is identified exclusively by a profile in 'clientProfiles'.
     const profile = await cloudGetClientProfile(firebaseUser.uid);
@@ -91,10 +104,11 @@ export const ClientAuthProvider = ({ children }) => {
       return null;
     }
 
-    // Restore a previously verified client session on this device.
-    if (cached && cached.uid === firebaseUser.uid && cached.role === 'client') {
-      return cached;
-    }
+    // Restore a previously verified client session on this device. This also
+    // covers a temporary Firestore/network failure — the profile lookups above
+    // then return null — so an offline client is never signed out by mistake.
+    const restored = restoreCachedClient(cached, firebaseUser);
+    if (restored) return restored;
 
     // Fallback: authenticated but without a Firestore profile yet (e.g. a fresh
     // sign-up from another device whose profile write was blocked).

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useClientAuth } from '../context/ClientAuthContext';
+import { getClientDisplayName } from '../utils/clientName';
 import { dbAddOrder } from '../services/db';
 import { trackMyReference } from '../services/notifications';
 import { X, Trash2, ShoppingBag, ArrowRight, CheckCircle2 } from 'lucide-react';
@@ -18,7 +19,7 @@ export const CartDrawer = ({ isOpen, onClose, cartItems, onUpdateQuantity, onRem
   // Prefill contact info from the connected client account.
   useEffect(() => {
     if (!clientUser) return;
-    setClientName(prev => prev || clientUser.fullName || clientUser.firstName || '');
+    setClientName(prev => prev || getClientDisplayName(clientUser));
     setClientPhone(prev => prev || clientUser.phone || '');
   }, [clientUser]);
 

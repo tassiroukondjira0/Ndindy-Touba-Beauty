@@ -26,10 +26,6 @@ const notifyAdminSessionChanged = () => {
  */
 export const hasAdminAccount = () => {
   return localStorage.getItem(AUTH_STORAGE_KEY) !== null;
-  // A temporary Firestore/network failure must not log out an admin whose
-  // Firebase Auth session and local session are still valid.
-  if (!cloudAdmin) return localSession;
-
 };
 
 /**
