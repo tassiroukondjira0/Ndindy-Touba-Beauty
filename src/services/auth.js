@@ -4,6 +4,7 @@ import {
   cloudRegisterAdmin, 
   cloudLoginAdmin,
   cloudChangeAdminPassword,
+  cloudUpdateAdminSession,
   auth
 } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -162,7 +163,8 @@ export const registerAdminAccount = (accountData) => {
     lastName: account.lastName,
     loggedInAt: new Date().toISOString()
   };
-  writeSession(SESSION_STORAGE_KEY, session);
+  const savedSession = writeSession(SESSION_STORAGE_KEY, session);
+  if (isFirebaseConfigured()) cloudUpdateAdminSession(savedSession);
   notifyAdminSessionChanged();
 
   if (isFirebaseConfigured()) {
@@ -222,7 +224,8 @@ export const registerAdminAccountAsync = async (accountData) => {
     lastName: account.lastName,
     loggedInAt: new Date().toISOString()
   };
-  writeSession(SESSION_STORAGE_KEY, session);
+  const savedSession = writeSession(SESSION_STORAGE_KEY, session);
+  if (isFirebaseConfigured()) cloudUpdateAdminSession(savedSession);
   notifyAdminSessionChanged();
 
   return account;
@@ -271,7 +274,8 @@ export const loginAdminAccountAsync = async (email, password) => {
           lastName: cloudAdmin.lastName,
           loggedInAt: new Date().toISOString()
         };
-        writeSession(SESSION_STORAGE_KEY, session);
+        const savedSession = writeSession(SESSION_STORAGE_KEY, session);
+        await cloudUpdateAdminSession(savedSession);
         notifyAdminSessionChanged();
         return session;
       }
@@ -355,6 +359,12 @@ export const restoreAdminSession = async () => {
     (cloudAdmin.email || '').toLowerCase() === (firebaseUser.email || '').toLowerCase();
 
   if (!sameAdmin) return localSession;
+  if (cloudAdmin.sessionToken && localSession?.sessionToken !== cloudAdmin.sessionToken) {
+    await signOut(auth).catch(() => {});
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    notifyAdminSessionChanged();
+    return null;
+  }
 
   const session = {
     email: cloudAdmin.email,
@@ -364,6 +374,7 @@ export const restoreAdminSession = async () => {
   };
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(cloudAdmin));
   const refreshedSession = writeSession(SESSION_STORAGE_KEY, session);
+  await cloudUpdateAdminSession(refreshedSession);
   notifyAdminSessionChanged();
   return refreshedSession;
 };

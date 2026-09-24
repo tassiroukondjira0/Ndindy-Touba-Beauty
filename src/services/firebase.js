@@ -492,6 +492,21 @@ export const cloudSaveAdminAccount = async (accountData) => {
   }
 };
 
+export const cloudUpdateAdminSession = async (session) => {
+  if (!isFirebaseConfigured() || !db || !session?.sessionToken) return null;
+  try {
+    await updateDoc(doc(db, 'admins', ADMIN_DOC_ID), {
+      sessionToken: session.sessionToken,
+      sessionLastActiveAt: session.lastActiveAt,
+      sessionExpiresAt: session.expiresAt
+    });
+    return true;
+  } catch (err) {
+    console.warn("Error syncing admin session:", err);
+    return false;
+  }
+};
+
 export const cloudRegisterAdmin = async (accountData) => {
   let firebaseUser = null;
 
@@ -702,6 +717,21 @@ export const cloudGetClientProfile = async (uid) => {
   } catch (err) {
     console.warn("Client profile get error:", err);
     return null;
+  }
+};
+
+export const cloudUpdateClientSession = async (uid, session) => {
+  if (!isFirebaseConfigured() || !db || !uid || !session?.sessionToken) return null;
+  try {
+    await updateDoc(doc(db, 'clientProfiles', uid), {
+      sessionToken: session.sessionToken,
+      sessionLastActiveAt: session.lastActiveAt,
+      sessionExpiresAt: session.expiresAt
+    });
+    return true;
+  } catch (err) {
+    console.warn("Error syncing client session:", err);
+    return false;
   }
 };
 

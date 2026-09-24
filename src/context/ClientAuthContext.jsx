@@ -4,7 +4,8 @@ import {
   auth,
   cloudGetClientProfile,
   cloudCreateClientProfile,
-  cloudGetAdminAccount
+  cloudGetAdminAccount,
+  cloudUpdateClientSession
 } from '../services/firebase';
 import {
   createUserWithEmailAndPassword,
@@ -28,7 +29,11 @@ const persistSession = (profile) => {
     localStorage.removeItem(CLIENT_SESSION_KEY);
     return;
   }
-  writeSession(CLIENT_SESSION_KEY, profile);
+  const session = writeSession(CLIENT_SESSION_KEY, profile);
+  if (isFirebaseConfigured() && profile.uid) {
+    cloudUpdateClientSession(profile.uid, session);
+  }
+  return session;
 };
 
 // Maps Firebase Auth errors to i18n keys.
@@ -78,6 +83,11 @@ export const ClientAuthProvider = ({ children }) => {
     // A client is identified exclusively by a profile in 'clientProfiles'.
     const profile = await cloudGetClientProfile(firebaseUser.uid);
     if (profile && profile.role !== 'admin') {
+      if (profile.sessionToken && cached?.sessionToken && profile.sessionToken !== cached.sessionToken) {
+        await signOut(auth).catch(() => {});
+        persistSession(null);
+        return null;
+      }
       const p = { ...profile, uid: firebaseUser.uid };
       persistSession(p);
       return p;
