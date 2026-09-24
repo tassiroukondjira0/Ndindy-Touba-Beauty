@@ -65,8 +65,11 @@ export const ClientAuthProvider = ({ children }) => {
 
   const resolveUserFromAuth = useCallback(async (firebaseUser) => {
     if (!firebaseUser) {
-      persistSession(null);
-      return null;
+      // Firebase can emit a transient null state while restoring its persisted
+      // browser session after a page reload. Keep the verified client cache
+      // until an explicit sign-out clears it.
+      const cached = getCachedSession();
+      return cached && cached.role === 'client' ? cached : null;
     }
     const cached = getCachedSession();
 
