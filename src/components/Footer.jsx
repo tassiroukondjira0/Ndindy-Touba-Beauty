@@ -116,7 +116,7 @@ export const Footer = ({ navigateTo }) => {
           }}
         >
           <div>
-            © {new Date().getFullYear()} TOUBA NDINDY PROFESSIONAL AFRICAN HAIR BRAIDING.{' '}
+            © {new Date().getFullYear()} TOUBA NDINDY AFRICAN HAIR BRAIDING PLUS L.L.C.{' '}
             {/* Subtle owner access point */}
             <button
               onClick={() => navigateTo && navigateTo('/admin')}

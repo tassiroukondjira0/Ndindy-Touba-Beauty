@@ -48,7 +48,7 @@ export const SalonInfo = () => {
               >
                 <img
                   src="/assets/touba-ndindy-card.jpg"
-                  alt="Carte de visite TOUBA NDINDY Professional African Hair Braiding"
+                  alt="Carte de visite Touba Ndindy African Hair Braiding Plus L.L.C"
                   style={{
                     width: '100%',
                     height: 'auto',

@@ -174,10 +174,10 @@ export const Navbar = ({ cartCount, onOpenCart, onOpenBooking, currentPath, navi
           </div>
           <div className="brand-text">
             <div className="font-serif text-gold" style={{ fontSize: '1.35rem', fontWeight: 700, lineHeight: 1.1, letterSpacing: '0.02em' }}>
-              TOUBA NDINDY
+              Touba Ndindy African Hair Braiding Plus L.L.C
             </div>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              African Hair Braiding
+              Salon de coiffure africain
             </div>
           </div>
         </button>

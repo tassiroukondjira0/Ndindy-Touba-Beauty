@@ -184,7 +184,7 @@ export const Hero = ({ onOpenBooking, navigateTo }) => {
               >
                 <img
                   src="/assets/flat-twist-braids.jpg"
-                  alt="TOUBA NDINDY Hair Braiding Hairstyle"
+                  alt="Touba Ndindy African Hair Braiding Plus L.L.C Hairstyle"
                   style={{
                     width: '100%',
                     height: '100%',

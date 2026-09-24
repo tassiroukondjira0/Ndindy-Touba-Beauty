@@ -43,7 +43,7 @@ export const translations = {
     hero_badge: "35 ans d'Expertise & Authenticité Africaine à Baltimore, MD",
     hero_title_1: "L'Art de la Tresse Africaine",
     hero_title_2: "Et la Beauté Sublimée",
-    hero_subtitle: "TOUBA NDINDY Professional African Hair Braiding vous accueille pour des coiffures d'exception, des soins capillaires naturels et une sélection exclusive de parfums d'Orient.",
+    hero_subtitle: "Touba Ndindy African Hair Braiding Plus L.L.C vous accueille pour des coiffures d'exception, des soins capillaires naturels et une sélection exclusive de parfums d'Orient.",
     hero_cta_book: "Réserver ma séance",
     hero_cta_shop: "Découvrir la boutique",
     stat_clients: "1500+ Clients Satisfaits",
@@ -71,7 +71,7 @@ export const translations = {
     // Certifications & Awards
     cert_tag: "Récompense Officielle",
     cert_title: "Certifié « Top 3 » des Salons de Westside Baltimore 2026",
-    cert_subtitle: "TOUBA NDINDY African Hair Braiding est officiellement classé parmi les 3 meilleurs salons de beauté de Westside Baltimore pour 2026 par BusinessRate, sur la base d'avis Google vérifiés.",
+    cert_subtitle: "Touba Ndindy African Hair Braiding Plus L.L.C est officiellement classé parmi les 3 meilleurs salons de beauté de Westside Baltimore pour 2026 par BusinessRate, sur la base d'avis Google vérifiés.",
     cert_badge_caption: "Badge officiel Top 3 — Westside Baltimore",
     cert_letter_caption: "Lettre de récompense officielle BusinessRate",
 
@@ -249,7 +249,7 @@ export const translations = {
     review_form_success: "Merci ! Votre avis a bien été publié.",
 
     // Footer
-    footer_desc: "TOUBA NDINDY Professional African Hair Braiding - Votre salon de coiffure africain de référence à Baltimore, MD.",
+    footer_desc: "Touba Ndindy African Hair Braiding Plus L.L.C - Votre salon de coiffure africain de référence à Baltimore, MD.",
     footer_nav_title: "Navigation Rapide",
     footer_hours_title: "Horaires d'ouverture",
     footer_hours_val: "Lundi - Samedi : 8h00 - 20h00 | Dimanche : SUR RDV",
@@ -257,7 +257,7 @@ export const translations = {
     footer_sunday: "Dimanche : SUR RENDEZ-VOUS",
     footer_contact_title: "Contact & Localisation",
     footer_rights: "Tous droits réservés.",
-    footer_made_with: "Fait avec excellence pour NDINDY TOUBA African Hair Braiding",
+    footer_made_with: "Fait avec excellence pour Touba Ndindy African Hair Braiding Plus L.L.C",
 
     // Admin Dashboard
     admin_title: "Espace d'Administration & Gestion",
@@ -481,7 +481,7 @@ export const translations = {
     hero_badge: "35 Years of Expertise & Authentic African Braiding in Baltimore, MD",
     hero_title_1: "The Art of African Braiding",
     hero_title_2: "And Elevated Beauty",
-    hero_subtitle: "TOUBA NDINDY Professional African Hair Braiding welcomes you for exceptional hairstyles, natural hair care, and an exclusive selection of luxury oriental perfumes.",
+    hero_subtitle: "Touba Ndindy African Hair Braiding Plus L.L.C welcomes you for exceptional hairstyles, natural hair care, and an exclusive selection of luxury oriental perfumes.",
     hero_cta_book: "Book My Appointment",
     hero_cta_shop: "Explore Shop",
     stat_clients: "1500+ Happy Clients",
@@ -509,7 +509,7 @@ export const translations = {
     // Certifications & Awards
     cert_tag: "Official Award",
     cert_title: "Certified \"Top 3\" Westside Baltimore Salon 2026",
-    cert_subtitle: "TOUBA NDINDY African Hair Braiding is officially ranked among the Top 3 beauty salons in Westside Baltimore for 2026 by BusinessRate, based on verified Google Reviews.",
+    cert_subtitle: "Touba Ndindy African Hair Braiding Plus L.L.C is officially ranked among the Top 3 beauty salons in Westside Baltimore for 2026 by BusinessRate, based on verified Google Reviews.",
     cert_badge_caption: "Official Top 3 — Westside Baltimore badge",
     cert_letter_caption: "Official BusinessRate award letter",
 
@@ -687,7 +687,7 @@ export const translations = {
     review_form_success: "Thank you! Your review has been published.",
 
     // Footer
-    footer_desc: "TOUBA NDINDY Professional African Hair Braiding - Your premier African braiding & beauty salon in Baltimore, MD.",
+    footer_desc: "Touba Ndindy African Hair Braiding Plus L.L.C - Your premier African braiding & beauty salon in Baltimore, MD.",
     footer_nav_title: "Quick Navigation",
     footer_hours_title: "Business Hours",
     footer_hours_val: "Monday - Saturday: 8:00 AM - 8:00 PM | Sunday: BY APPOINTMENT",
@@ -695,7 +695,7 @@ export const translations = {
     footer_sunday: "Sunday: BY APPOINTMENT",
     footer_contact_title: "Contact & Location",
     footer_rights: "All rights reserved.",
-    footer_made_with: "Crafted with excellence for NDINDY TOUBA African Hair Braiding",
+    footer_made_with: "Crafted with excellence for Touba Ndindy African Hair Braiding Plus L.L.C",
 
     // Admin Dashboard
     admin_title: "Administration & Management Portal",
