@@ -14,14 +14,14 @@ import {
   onAuthStateChanged,
   updateProfile
 } from 'firebase/auth';
-import { hasExpiredSession, readValidSession, refreshSession, writeSession } from '../services/session';
+import { readStoredSession, refreshSession, writeSession } from '../services/session';
 
 const ClientAuthContext = createContext();
 
 const CLIENT_SESSION_KEY = 'touba_ndindy_client_session';
 
 const getCachedSession = () => {
-  return readValidSession(CLIENT_SESSION_KEY);
+  return readStoredSession(CLIENT_SESSION_KEY);
 };
 
 const persistSession = (profile) => {
@@ -65,7 +65,6 @@ export const ClientAuthProvider = ({ children }) => {
   const pendingResumeRef = useRef(null);
 
   const resolveUserFromAuth = useCallback(async (firebaseUser) => {
-    const expiredLocalSession = hasExpiredSession(CLIENT_SESSION_KEY);
     if (!firebaseUser) {
       // Firebase can emit a transient null state while restoring its persisted
       // browser session after a page reload. Keep the verified client cache
@@ -73,21 +72,11 @@ export const ClientAuthProvider = ({ children }) => {
       const cached = getCachedSession();
       return cached && cached.role === 'client' ? cached : null;
     }
-    if (expiredLocalSession) {
-      await signOut(auth).catch(() => {});
-      persistSession(null);
-      return null;
-    }
     const cached = getCachedSession();
 
     // A client is identified exclusively by a profile in 'clientProfiles'.
     const profile = await cloudGetClientProfile(firebaseUser.uid);
     if (profile && profile.role !== 'admin') {
-      if (profile.sessionToken && cached?.sessionToken && profile.sessionToken !== cached.sessionToken) {
-        await signOut(auth).catch(() => {});
-        persistSession(null);
-        return null;
-      }
       const p = { ...profile, uid: firebaseUser.uid };
       persistSession(p);
       return p;

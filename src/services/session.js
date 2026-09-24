@@ -41,6 +41,16 @@ export const readValidSession = (storageKey) => {
   }
 };
 
+export const readStoredSession = (storageKey) => {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    localStorage.removeItem(storageKey);
+    return null;
+  }
+};
+
 export const hasExpiredSession = (storageKey) => {
   try {
     const raw = localStorage.getItem(storageKey);

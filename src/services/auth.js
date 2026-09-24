@@ -8,7 +8,7 @@ import {
   auth
 } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { hasExpiredSession, readValidSession, refreshSession, writeSession } from './session';
+import { readStoredSession, refreshSession, writeSession } from './session';
 
 const AUTH_STORAGE_KEY = 'touba_ndindy_admin_account';
 const SESSION_STORAGE_KEY = 'touba_ndindy_admin_session';
@@ -324,12 +324,12 @@ export const changeAdminPassword = async (currentPassword, newPassword) => {
  * Get active session
  */
 export const getCurrentAdminSession = () => {
-  return readValidSession(SESSION_STORAGE_KEY);
+  return readStoredSession(SESSION_STORAGE_KEY);
 };
 
 export const restoreAdminSession = async () => {
-  const expiredLocalSession = hasExpiredSession(SESSION_STORAGE_KEY);
   const localSession = getCurrentAdminSession();
+  if (localSession) return localSession;
   if (!isFirebaseConfigured() || !auth) return localSession;
 
   let firebaseUser = auth.currentUser;
@@ -347,25 +347,12 @@ export const restoreAdminSession = async () => {
   }
 
   if (!firebaseUser) return localSession;
-  if (expiredLocalSession) {
-    await signOut(auth).catch(() => {});
-    notifyAdminSessionChanged();
-    return null;
-  }
-
   const cloudAdmin = await cloudGetAdminAccount();
   const sameAdmin = cloudAdmin &&
     (cloudAdmin.uid ? cloudAdmin.uid === firebaseUser.uid : true) &&
     (cloudAdmin.email || '').toLowerCase() === (firebaseUser.email || '').toLowerCase();
 
   if (!sameAdmin) return localSession;
-  if (cloudAdmin.sessionToken && localSession?.sessionToken !== cloudAdmin.sessionToken) {
-    await signOut(auth).catch(() => {});
-    localStorage.removeItem(SESSION_STORAGE_KEY);
-    notifyAdminSessionChanged();
-    return null;
-  }
-
   const session = {
     email: cloudAdmin.email,
     firstName: cloudAdmin.firstName || '',
