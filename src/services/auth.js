@@ -3,6 +3,7 @@ import {
   cloudGetAdminAccount, 
   cloudRegisterAdmin, 
   cloudLoginAdmin,
+  cloudChangeAdminPassword,
   auth
 } from './firebase';
 import { signOut } from 'firebase/auth';
@@ -280,6 +281,31 @@ export const loginAdminAccountAsync = async (email, password) => {
 
   // 2. Fallback to local account check
   return loginAdminAccount(cleanEmail, password);
+};
+
+export const changeAdminPassword = async (currentPassword, newPassword) => {
+  const account = await getAdminAccountAsync();
+  if (!account) throw new Error("Aucun compte administrateur n'existe.");
+
+  const validation = validatePassword(newPassword, account);
+  if (!validation.isValid) throw new Error(validation.errors.join(' '));
+
+  if (isFirebaseConfigured()) {
+    const verifiedAdmin = await cloudLoginAdmin(account.email, currentPassword);
+    if (!verifiedAdmin) throw new Error('Mot de passe actuel incorrect.');
+    await cloudChangeAdminPassword(newPassword);
+    const updatedAccount = { ...account, ...verifiedAdmin, passwordHash: btoa(newPassword) };
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedAccount));
+    return updatedAccount;
+  }
+
+  if (account.passwordHash !== btoa(currentPassword || '')) {
+    throw new Error('Mot de passe actuel incorrect.');
+  }
+
+  const updatedAccount = { ...account, passwordHash: btoa(newPassword) };
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedAccount));
+  return updatedAccount;
 };
 
 /**

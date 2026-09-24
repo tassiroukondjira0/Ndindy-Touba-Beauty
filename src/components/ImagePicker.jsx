@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Search, Image as ImageIcon, Check } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import { Search, Image as ImageIcon, Check, Upload } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import projectImages from 'virtual:project-images';
 
@@ -7,8 +7,10 @@ import projectImages from 'virtual:project-images';
 // stored in public/assets as a thumbnail grid so the owner can click to choose
 // instead of typing a path. A manual URL field stays available as a fallback.
 export const ImagePicker = ({ label, value, onChange }) => {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [query, setQuery] = useState('');
+  const [galleryImages, setGalleryImages] = useState([]);
+  const galleryInputRef = useRef(null);
 
   const images = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -17,6 +19,21 @@ export const ImagePicker = ({ label, value, onChange }) => {
   }, [query]);
 
   const selected = value && value.trim() !== '';
+
+  const handleGallerySelection = (event) => {
+    const files = Array.from(event.target.files || []).filter(file => file.type.startsWith('image/'));
+    if (files.length === 0) return;
+
+    Promise.all(files.map(file => new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ name: file.name, path: String(reader.result || '') });
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    }))).then(items => {
+      setGalleryImages(prev => [...items.filter(Boolean), ...prev].slice(0, 30));
+    });
+    event.target.value = '';
+  };
 
   return (
     <div>
@@ -38,6 +55,23 @@ export const ImagePicker = ({ label, value, onChange }) => {
         />
       </div>
 
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handleGallerySelection}
+        style={{ display: 'none' }}
+      />
+      <button
+        type="button"
+        onClick={() => galleryInputRef.current?.click()}
+        style={{ width: '100%', padding: '10px 12px', marginBottom: '10px', borderRadius: '8px', backgroundColor: 'rgba(212,175,55,0.1)', border: '1px dashed rgba(212,175,55,0.45)', color: 'var(--gold-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', fontWeight: 700 }}
+      >
+        <Upload size={15} />
+        <span>{language === 'fr' ? 'Autoriser l’accès à ma galerie' : 'Allow access to my gallery'}</span>
+      </button>
+
       <div
         style={{
           maxHeight: '180px', overflowY: 'auto', border: '1px solid rgba(212,175,55,0.25)',
@@ -46,6 +80,21 @@ export const ImagePicker = ({ label, value, onChange }) => {
           backgroundColor: 'rgba(0,0,0,0.2)'
         }}
       >
+        {galleryImages.map(image => {
+          const isSelected = selected && value === image.path;
+          return (
+            <button
+              key={image.path}
+              type="button"
+              onClick={() => onChange(image.path)}
+              title={image.name}
+              style={{ position: 'relative', aspectRatio: '1', borderRadius: '6px', overflow: 'hidden', border: isSelected ? '2px solid var(--gold-primary)' : '2px solid transparent', background: 'rgba(255,255,255,0.06)', padding: 0, cursor: 'pointer' }}
+            >
+              <img src={image.path} alt={image.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              {isSelected && <span style={{ position: 'absolute', top: '2px', right: '2px', width: '18px', height: '18px', borderRadius: '50%', backgroundColor: 'var(--gold-primary)', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Check size={12} strokeWidth={3} /></span>}
+            </button>
+          );
+        })}
         {images.map(path => {
           const isSelected = selected && value === path;
           return (

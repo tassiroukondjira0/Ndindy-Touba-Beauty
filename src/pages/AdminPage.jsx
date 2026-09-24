@@ -12,6 +12,7 @@ import {
   loginAdminAccountAsync,
   getCurrentAdminSession, 
   logoutAdminAccount,
+  changeAdminPassword,
   validatePassword,
   hasConsecutiveSequentialChars
 } from '../services/auth';
@@ -147,7 +148,13 @@ export const AdminPage = () => {
   // Auth state
   const [accountExists, setAccountExists] = useState(false);
   const [adminAccount, setAdminAccount] = useState(null);
-  const [currentSession, setCurrentSession] = useState(null);
+  const [currentSession, setCurrentSession] = useState(() => getCurrentAdminSession());
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordMessage, setPasswordMessage] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   // Registration state
   const [regFirstName, setRegFirstName] = useState('');
@@ -385,6 +392,25 @@ export const AdminPage = () => {
   const handleLogout = () => {
     logoutAdminAccount();
     setCurrentSession(null);
+  };
+
+  const handleChangePassword = async (event) => {
+    event.preventDefault();
+    setPasswordMessage('');
+    setPasswordError('');
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError(language === 'fr' ? 'Les nouveaux mots de passe ne correspondent pas.' : 'The new passwords do not match.');
+      return;
+    }
+    try {
+      await changeAdminPassword(currentPassword, newPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setPasswordMessage(language === 'fr' ? 'Mot de passe modifié avec succès.' : 'Password changed successfully.');
+    } catch (error) {
+      setPasswordError(error.message);
+    }
   };
 
   const handleStatusChange = (id, newStatus) => {
@@ -814,6 +840,13 @@ export const AdminPage = () => {
 
             {/* Logout Button */}
             <button
+              onClick={() => { setPasswordError(''); setPasswordMessage(''); setIsPasswordModalOpen(true); }}
+              style={{ padding: '10px 18px', borderRadius: '30px', backgroundColor: 'rgba(212, 175, 55, 0.12)', color: 'var(--gold-light)', border: '1px solid rgba(212, 175, 55, 0.35)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <Key size={16} />
+              <span>{language === 'fr' ? 'Modifier le mot de passe' : 'Change password'}</span>
+            </button>
+            <button
               onClick={handleLogout}
               style={{ padding: '10px 22px', borderRadius: '30px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}
             >
@@ -822,6 +855,29 @@ export const AdminPage = () => {
             </button>
           </div>
         </div>
+
+        {isPasswordModalOpen && (
+          <div className="glass-card" style={{ padding: '24px', marginBottom: '28px', border: '1px solid rgba(212, 175, 55, 0.35)', maxWidth: '620px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
+              <h3 className="font-serif text-gold" style={{ fontSize: '1.45rem', margin: 0 }}>
+                {language === 'fr' ? 'Modifier le mot de passe admin' : 'Change admin password'}
+              </h3>
+              <button onClick={() => setIsPasswordModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <XCircle size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required placeholder={language === 'fr' ? 'Mot de passe actuel' : 'Current password'} style={{ width: '100%', padding: '11px 13px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+              <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required placeholder={language === 'fr' ? 'Nouveau mot de passe' : 'New password'} style={{ width: '100%', padding: '11px 13px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+              <input type="password" value={confirmNewPassword} onChange={e => setConfirmNewPassword(e.target.value)} required placeholder={language === 'fr' ? 'Confirmer le nouveau mot de passe' : 'Confirm new password'} style={{ width: '100%', padding: '11px 13px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
+              {passwordError && <div style={{ color: '#f87171', fontSize: '0.85rem' }}>⚠️ {passwordError}</div>}
+              {passwordMessage && <div style={{ color: '#4ade80', fontSize: '0.85rem' }}>✓ {passwordMessage}</div>}
+              <button type="submit" className="bg-gold-gradient" style={{ padding: '12px 18px', borderRadius: '24px', fontWeight: 700, cursor: 'pointer' }}>
+                {language === 'fr' ? 'Enregistrer le nouveau mot de passe' : 'Save new password'}
+              </button>
+            </form>
+          </div>
+        )}
 
         {/* Key Metrics */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '36px' }}>

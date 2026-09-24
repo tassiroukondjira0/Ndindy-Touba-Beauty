@@ -20,6 +20,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
+  updatePassword,
   onAuthStateChanged
 } from 'firebase/auth';
 
@@ -568,6 +569,17 @@ export const cloudLoginAdmin = async (email, password) => {
   }
 
   return null;
+};
+
+export const cloudChangeAdminPassword = async (newPassword) => {
+  if (!isFirebaseConfigured() || !auth || !auth.currentUser) {
+    throw new Error('Session Firebase administrateur introuvable.');
+  }
+
+  await updatePassword(auth.currentUser, newPassword);
+  const updated = await cloudSaveAdminAccount({ passwordHash: btoa(newPassword) });
+  if (!updated) throw new Error('Le profil administrateur n’a pas pu être mis à jour.');
+  return updated;
 };
 
 export const subscribeToCloudAdmin = (onUpdate) => {
