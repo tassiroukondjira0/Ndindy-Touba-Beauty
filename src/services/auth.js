@@ -8,7 +8,7 @@ import {
   auth
 } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { hasExpiredSession, readValidSession, writeSession } from './session';
+import { hasExpiredSession, readValidSession, refreshSession, writeSession } from './session';
 
 const AUTH_STORAGE_KEY = 'touba_ndindy_admin_account';
 const SESSION_STORAGE_KEY = 'touba_ndindy_admin_session';
@@ -373,7 +373,7 @@ export const restoreAdminSession = async () => {
     loggedInAt: localSession?.loggedInAt || new Date().toISOString()
   };
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(cloudAdmin));
-  const refreshedSession = writeSession(SESSION_STORAGE_KEY, session);
+  const refreshedSession = refreshSession(SESSION_STORAGE_KEY, session);
   await cloudUpdateAdminSession(refreshedSession);
   notifyAdminSessionChanged();
   return refreshedSession;

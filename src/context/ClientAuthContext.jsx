@@ -14,7 +14,7 @@ import {
   onAuthStateChanged,
   updateProfile
 } from 'firebase/auth';
-import { hasExpiredSession, readValidSession, writeSession } from '../services/session';
+import { hasExpiredSession, readValidSession, refreshSession, writeSession } from '../services/session';
 
 const ClientAuthContext = createContext();
 
@@ -29,7 +29,7 @@ const persistSession = (profile) => {
     localStorage.removeItem(CLIENT_SESSION_KEY);
     return;
   }
-  const session = writeSession(CLIENT_SESSION_KEY, profile);
+  const session = refreshSession(CLIENT_SESSION_KEY, profile);
   if (isFirebaseConfigured() && profile.uid) {
     cloudUpdateClientSession(profile.uid, session);
   }

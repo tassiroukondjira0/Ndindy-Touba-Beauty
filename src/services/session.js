@@ -58,4 +58,17 @@ export const writeSession = (storageKey, profile) => {
   return session;
 };
 
+export const refreshSession = (storageKey, profile) => {
+  const existing = readValidSession(storageKey);
+  const now = Date.now();
+  const session = {
+    ...profile,
+    sessionToken: existing?.sessionToken || createToken(),
+    lastActiveAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + SESSION_DURATION_MS).toISOString()
+  };
+  localStorage.setItem(storageKey, JSON.stringify(session));
+  return session;
+};
+
 export const getSessionDurationDays = () => 7;
