@@ -206,6 +206,9 @@ export const registerAdminAccountAsync = async (accountData) => {
         account = { ...account, ...cloudResult };
       }
     } catch (e) {
+      if (e.message === 'Un compte administrateur existe déjà.') {
+        throw e;
+      }
       console.warn("Cloud registration error:", e);
     }
   }
@@ -345,13 +348,7 @@ export const restoreAdminSession = async () => {
     (cloudAdmin.uid ? cloudAdmin.uid === firebaseUser.uid : true) &&
     (cloudAdmin.email || '').toLowerCase() === (firebaseUser.email || '').toLowerCase();
 
-  if (!sameAdmin) {
-    localStorage.removeItem(SESSION_STORAGE_KEY);
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    await signOut(auth).catch(() => {});
-    notifyAdminSessionChanged();
-    return null;
-  }
+  if (!sameAdmin) return localSession;
 
   const session = {
     email: cloudAdmin.email,

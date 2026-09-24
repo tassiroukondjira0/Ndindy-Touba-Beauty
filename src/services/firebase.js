@@ -494,6 +494,11 @@ export const cloudSaveAdminAccount = async (accountData) => {
 
 export const cloudRegisterAdmin = async (accountData) => {
   let firebaseUser = null;
+
+  const existingAdmin = await cloudGetAdminAccount();
+  if (existingAdmin) {
+    throw new Error("Un compte administrateur existe déjà.");
+  }
   
   // 1. Try Firebase Authentication first if enabled
   if (isFirebaseConfigured() && auth) {
