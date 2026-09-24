@@ -7,6 +7,7 @@ import {
   auth
 } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { hasExpiredSession, readValidSession, writeSession } from './session';
 
 const AUTH_STORAGE_KEY = 'touba_ndindy_admin_account';
 const SESSION_STORAGE_KEY = 'touba_ndindy_admin_session';
@@ -161,7 +162,7 @@ export const registerAdminAccount = (accountData) => {
     lastName: account.lastName,
     loggedInAt: new Date().toISOString()
   };
-  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  writeSession(SESSION_STORAGE_KEY, session);
   notifyAdminSessionChanged();
 
   if (isFirebaseConfigured()) {
@@ -221,7 +222,7 @@ export const registerAdminAccountAsync = async (accountData) => {
     lastName: account.lastName,
     loggedInAt: new Date().toISOString()
   };
-  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  writeSession(SESSION_STORAGE_KEY, session);
   notifyAdminSessionChanged();
 
   return account;
@@ -250,7 +251,7 @@ export const loginAdminAccount = (email, password) => {
     loggedInAt: new Date().toISOString()
   };
 
-  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  writeSession(SESSION_STORAGE_KEY, session);
   notifyAdminSessionChanged();
   return session;
 };
@@ -270,7 +271,7 @@ export const loginAdminAccountAsync = async (email, password) => {
           lastName: cloudAdmin.lastName,
           loggedInAt: new Date().toISOString()
         };
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+        writeSession(SESSION_STORAGE_KEY, session);
         notifyAdminSessionChanged();
         return session;
       }
@@ -319,11 +320,11 @@ export const changeAdminPassword = async (currentPassword, newPassword) => {
  * Get active session
  */
 export const getCurrentAdminSession = () => {
-  const data = localStorage.getItem(SESSION_STORAGE_KEY);
-  return data ? JSON.parse(data) : null;
+  return readValidSession(SESSION_STORAGE_KEY);
 };
 
 export const restoreAdminSession = async () => {
+  const expiredLocalSession = hasExpiredSession(SESSION_STORAGE_KEY);
   const localSession = getCurrentAdminSession();
   if (!isFirebaseConfigured() || !auth) return localSession;
 
@@ -342,6 +343,11 @@ export const restoreAdminSession = async () => {
   }
 
   if (!firebaseUser) return localSession;
+  if (expiredLocalSession) {
+    await signOut(auth).catch(() => {});
+    notifyAdminSessionChanged();
+    return null;
+  }
 
   const cloudAdmin = await cloudGetAdminAccount();
   const sameAdmin = cloudAdmin &&
@@ -357,9 +363,9 @@ export const restoreAdminSession = async () => {
     loggedInAt: localSession?.loggedInAt || new Date().toISOString()
   };
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(cloudAdmin));
-  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  const refreshedSession = writeSession(SESSION_STORAGE_KEY, session);
   notifyAdminSessionChanged();
-  return session;
+  return refreshedSession;
 };
 
 /**

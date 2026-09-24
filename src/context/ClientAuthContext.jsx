@@ -13,18 +13,14 @@ import {
   onAuthStateChanged,
   updateProfile
 } from 'firebase/auth';
+import { hasExpiredSession, readValidSession, writeSession } from '../services/session';
 
 const ClientAuthContext = createContext();
 
 const CLIENT_SESSION_KEY = 'touba_ndindy_client_session';
 
 const getCachedSession = () => {
-  try {
-    const data = localStorage.getItem(CLIENT_SESSION_KEY);
-    return data ? JSON.parse(data) : null;
-  } catch (e) {
-    return null;
-  }
+  return readValidSession(CLIENT_SESSION_KEY);
 };
 
 const persistSession = (profile) => {
@@ -32,7 +28,7 @@ const persistSession = (profile) => {
     localStorage.removeItem(CLIENT_SESSION_KEY);
     return;
   }
-  localStorage.setItem(CLIENT_SESSION_KEY, JSON.stringify(profile));
+  writeSession(CLIENT_SESSION_KEY, profile);
 };
 
 // Maps Firebase Auth errors to i18n keys.
@@ -64,12 +60,18 @@ export const ClientAuthProvider = ({ children }) => {
   const pendingResumeRef = useRef(null);
 
   const resolveUserFromAuth = useCallback(async (firebaseUser) => {
+    const expiredLocalSession = hasExpiredSession(CLIENT_SESSION_KEY);
     if (!firebaseUser) {
       // Firebase can emit a transient null state while restoring its persisted
       // browser session after a page reload. Keep the verified client cache
       // until an explicit sign-out clears it.
       const cached = getCachedSession();
       return cached && cached.role === 'client' ? cached : null;
+    }
+    if (expiredLocalSession) {
+      await signOut(auth).catch(() => {});
+      persistSession(null);
+      return null;
     }
     const cached = getCachedSession();
 
