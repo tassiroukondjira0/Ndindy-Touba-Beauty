@@ -11,6 +11,7 @@ import {
   loginAdminAccount, 
   loginAdminAccountAsync,
   getCurrentAdminSession, 
+  restoreAdminSession,
   logoutAdminAccount,
   changeAdminPassword,
   validatePassword,
@@ -214,7 +215,7 @@ export const AdminPage = () => {
     setAccountExists(exists);
     const acc = await getAdminAccountAsync();
     setAdminAccount(acc);
-    const sess = getCurrentAdminSession();
+    const sess = await restoreAdminSession();
     setCurrentSession(sess);
 
     if (acc && !loginEmail) {

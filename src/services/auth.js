@@ -6,7 +6,7 @@ import {
   cloudChangeAdminPassword,
   auth
 } from './firebase';
-import { signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 const AUTH_STORAGE_KEY = 'touba_ndindy_admin_account';
 const SESSION_STORAGE_KEY = 'touba_ndindy_admin_session';
@@ -314,6 +314,51 @@ export const changeAdminPassword = async (currentPassword, newPassword) => {
 export const getCurrentAdminSession = () => {
   const data = localStorage.getItem(SESSION_STORAGE_KEY);
   return data ? JSON.parse(data) : null;
+};
+
+export const restoreAdminSession = async () => {
+  const localSession = getCurrentAdminSession();
+  if (!isFirebaseConfigured() || !auth) return localSession;
+
+  let firebaseUser = auth.currentUser;
+  if (!firebaseUser) {
+    firebaseUser = await new Promise(resolve => {
+      let unsubscribe = () => {};
+      unsubscribe = onAuthStateChanged(auth, user => {
+        unsubscribe();
+        resolve(user);
+      }, () => {
+        unsubscribe();
+        resolve(null);
+      });
+    });
+  }
+
+  if (!firebaseUser) return localSession;
+
+  const cloudAdmin = await cloudGetAdminAccount();
+  const sameAdmin = cloudAdmin &&
+    (cloudAdmin.uid ? cloudAdmin.uid === firebaseUser.uid : true) &&
+    (cloudAdmin.email || '').toLowerCase() === (firebaseUser.email || '').toLowerCase();
+
+  if (!sameAdmin) {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    await signOut(auth).catch(() => {});
+    notifyAdminSessionChanged();
+    return null;
+  }
+
+  const session = {
+    email: cloudAdmin.email,
+    firstName: cloudAdmin.firstName || '',
+    lastName: cloudAdmin.lastName || '',
+    loggedInAt: localSession?.loggedInAt || new Date().toISOString()
+  };
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(cloudAdmin));
+  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  notifyAdminSessionChanged();
+  return session;
 };
 
 /**

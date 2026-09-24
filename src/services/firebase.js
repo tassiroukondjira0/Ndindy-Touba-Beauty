@@ -21,6 +21,8 @@ import {
   signInWithEmailAndPassword,
   signOut,
   updatePassword,
+  browserLocalPersistence,
+  setPersistence,
   onAuthStateChanged
 } from 'firebase/auth';
 
@@ -52,6 +54,9 @@ if (isFirebaseConfigured()) {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
     db = getFirestore(app);
     auth = getAuth(app);
+    setPersistence(auth, browserLocalPersistence).catch(err => {
+      console.warn("Firebase Auth persistence warning:", err.message);
+    });
     storage = getStorage(app);
     console.log("🔥 Firebase Cloud Database & Auth Initialized Successfully!");
   } catch (err) {

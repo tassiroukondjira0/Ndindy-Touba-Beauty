@@ -5,7 +5,7 @@ const LanguageContext = createContext();
 
 export const LanguageProvider = ({ children }) => {
   const [language, setLanguage] = useState(() => {
-    return localStorage.getItem('touba_ndindy_lang') || import.meta.env.VITE_DEFAULT_LANG || 'fr';
+    return 'en';
   });
 
   useEffect(() => {
