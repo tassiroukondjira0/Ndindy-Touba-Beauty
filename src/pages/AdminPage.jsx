@@ -1377,30 +1377,38 @@ export const AdminPage = () => {
 
         {/* Add Product Modal */}
         {isAddModalOpen && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
-            <div className="glass-card" style={{ maxWidth: '500px', width: '100%', padding: '28px' }}>
-              <h3 className="font-serif text-gold" style={{ fontSize: '1.6rem', marginBottom: '20px' }}>{t('admin_modal_title')}</h3>
-              <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(12px, 4vw, 24px)', overflowY: 'auto' }}>
+            <div className="glass-card" style={{ maxWidth: '560px', width: '100%', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', padding: 'clamp(20px, 4vw, 30px)', border: '1px solid rgba(212,175,55,0.45)' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '22px' }}>
                 <div>
-                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_name')}</label>
+                  <div className="tag-badge" style={{ marginBottom: '8px', fontSize: '0.72rem' }}>{language === 'fr' ? 'Catalogue' : 'Catalog'}</div>
+                  <h3 className="font-serif text-gold" style={{ fontSize: '1.7rem', lineHeight: 1.1, margin: 0 }}>{t('admin_modal_title')}</h3>
+                </div>
+                <button type="button" onClick={() => setIsAddModalOpen(false)} aria-label={t('common_close')} style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: 'var(--text-main)', width: '34px', height: '34px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <XCircle size={18} />
+                </button>
+              </div>
+              <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '7px' }}>{t('admin_modal_name')}</label>
                   <input type="text" value={newTitle} onChange={e => setNewTitle(e.target.value)} required placeholder={t('admin_modal_name_ph')} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
                   <div>
-                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_category')}</label>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '7px' }}>{t('admin_modal_category')}</label>
                     <select value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: '#141219', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }}>
                       <option value="care">{t('admin_modal_cat_care')}</option>
                       <option value="perfume">{t('admin_modal_cat_perfume')}</option>
                     </select>
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_price')}</label>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '7px' }}>{t('admin_modal_price')}</label>
                     <input type="number" step="0.01" value={newPrice} onChange={e => setNewPrice(e.target.value)} required placeholder="25.00" style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
                   </div>
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_stock')}</label>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '7px' }}>{t('admin_modal_stock')}</label>
                   <input type="number" value={newStock} onChange={e => setNewStock(e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
                 </div>
 
@@ -1409,7 +1417,7 @@ export const AdminPage = () => {
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('admin_modal_desc')}</label>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '7px' }}>{t('admin_modal_desc')}</label>
                   <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} rows={2} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)', color: '#fff' }} />
                 </div>
 

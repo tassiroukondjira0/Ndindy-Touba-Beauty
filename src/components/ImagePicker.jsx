@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Search, Image as ImageIcon, Check, Upload } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import projectImages from 'virtual:project-images';
 
 // Photo picker for the admin product/perfume/braid modals. Shows every image
 // stored in public/assets as a thumbnail grid so the owner can click to choose
@@ -12,11 +11,7 @@ export const ImagePicker = ({ label, value, onChange }) => {
   const [galleryImages, setGalleryImages] = useState([]);
   const galleryInputRef = useRef(null);
 
-  const images = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return projectImages;
-    return projectImages.filter(p => p.toLowerCase().includes(q));
-  }, [query]);
+  const images = useMemo(() => [], [query]);
 
   const selected = value && value.trim() !== '';
 
