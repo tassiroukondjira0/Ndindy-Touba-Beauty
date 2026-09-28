@@ -93,8 +93,8 @@ export const Footer = ({ navigateTo }) => {
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.9rem', lineHeight: 1.6 }}>
               <Clock size={18} color="var(--gold-primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
               <div>
-                <div><strong>{t('footer_mon_sat')}</strong> 8:00 AM - 8:00 PM</div>
-                <div><strong>{t('footer_sunday')}</strong></div>
+                <div><strong>{t('footer_mon_sat')}</strong> {t('footer_mon_sat_hours')}</div>
+                <div><strong>{t('footer_sunday')}</strong> {t('footer_sunday_val')}</div>
               </div>
             </div>
           </div>
