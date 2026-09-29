@@ -10,6 +10,10 @@ import {
   cloudSendPhonePasswordReset,
   cloudVerifyPasswordResetCode,
   cloudConfirmPasswordReset,
+  cloudSendEmailVerification,
+  cloudRequestEmailVerification,
+  cloudCheckEmailAction,
+  cloudApplyEmailAction,
   authPersistenceReady
 } from '../services/firebase';
 import {
@@ -91,6 +95,26 @@ const mapResetError = (code) => {
   }
 };
 
+// Maps address-verification failures to i18n keys.
+const mapVerificationError = (code) => {
+  switch (code) {
+    case 'auth/expired-action-code':
+    case 'auth/invalid-action-code':
+      return 'client_verify_error_link_expired';
+    case 'auth/requires-recent-login':
+      return 'client_verify_error_recent_login';
+    case 'auth/too-many-requests':
+      return 'client_verify_error_too_many_requests';
+    case 'auth/not-signed-in':
+    case 'auth/user-not-found':
+      return 'client_verify_error_not_signed_in';
+    case 'auth/network-request-failed':
+      return 'client_error_network';
+    default:
+      return 'client_verify_error_generic';
+  }
+};
+
 // Normalises a phone number to digits so it can be matched against the stored
 // 'phoneDigits' field regardless of the format the client typed it in.
 const phoneToDigits = (value) => (value || '').replace(/\D/g, '');
@@ -109,6 +133,19 @@ export const readResetCodeFromUrl = () => {
   return new URLSearchParams(hash).get('oobCode') || '';
 };
 
+// Same as above, but also reports which kind of email action the link carries,
+// so a verification link can be told apart from a password reset.
+export const readEmailActionFromUrl = () => {
+  if (typeof window === 'undefined') return { oobCode: '', mode: '' };
+  const fromQuery = new URLSearchParams(window.location.search);
+  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
+  const fromHash = hash ? new URLSearchParams(hash) : new URLSearchParams();
+  return {
+    oobCode: fromQuery.get('oobCode') || fromHash.get('oobCode') || '',
+    mode: fromQuery.get('mode') || fromHash.get('mode') || ''
+  };
+};
+
 // Drops the spent one-time code from the address bar, so a later reload does
 // not reopen a reset form for a link that has already been used.
 const clearResetCodeFromUrl = () => {
@@ -116,6 +153,7 @@ const clearResetCodeFromUrl = () => {
   try {
     const url = new URL(window.location.href);
     url.searchParams.delete('oobCode');
+    url.searchParams.delete('mode');
     if (url.hash.includes('oobCode')) url.hash = '';
     window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
   } catch (e) {
@@ -159,7 +197,14 @@ export const ClientAuthProvider = ({ children }) => {
     // A client is identified exclusively by a profile in 'clientProfiles'.
     const profile = await cloudGetClientProfile(firebaseUser.uid);
     if (profile && profile.role !== 'admin') {
-      const p = { ...profile, uid: firebaseUser.uid };
+      // Firebase Auth is the source of truth for the confirmed-address flag, so
+      // it always wins over the copy stored on the profile.
+      const p = {
+        ...profile,
+        uid: firebaseUser.uid,
+        email: profile.email || firebaseUser.email || '',
+        emailVerified: Boolean(firebaseUser.emailVerified)
+      };
       persistSession(p);
       return p;
     }
@@ -228,7 +273,37 @@ export const ClientAuthProvider = ({ children }) => {
     try {
       await authPersistenceReady;
       const userCred = await signInWithEmailAndPassword(auth, (email || '').trim().toLowerCase(), password);
-      const profile = await resolveUserFromAuth(userCred.user);
+      const firebaseUser = userCred.user;
+
+      // A new account stays locked until the address is confirmed. The session
+      // opened by signInWithEmailAndPassword is dropped again so the client
+      // cannot reach any feature while their address is unproven.
+      if (firebaseUser && firebaseUser.emailVerified === false) {
+        // Read the flag directly instead of going through resolveUserFromAuth,
+        // which would persist the session that is about to be rejected.
+        const stored = await cloudGetClientProfile(firebaseUser.uid);
+        if (stored && stored.verificationRequired) {
+          // Re-send the link: the first one may have been lost or mistyped, and
+          // without it the client has no way to finish signing up.
+          try {
+            await cloudSendEmailVerification(firebaseUser);
+          } catch (e) {
+            console.warn("Unverified re-send warning:", e);
+          }
+          // Cached session is cleared before the sign-out, otherwise the auth
+          // state listener would restore the session it just observed.
+          persistSession(null);
+          try {
+            await signOut(auth);
+          } catch (e) {
+            console.warn("Unverified sign-out warning:", e);
+          }
+          setClientUser(null);
+          return { error: 'client_verify_required' };
+        }
+      }
+
+      const profile = await resolveUserFromAuth(firebaseUser);
       completeAuth(profile, true);
       return { success: true, profile };
     } catch (err) {
@@ -258,6 +333,13 @@ export const ClientAuthProvider = ({ children }) => {
         firstName: (fullName || '').trim().split(/\s+/)[0] || '',
         lastName: (fullName || '').trim().split(/\s+/).slice(1).join(' '),
         email: (email || '').trim().toLowerCase(),
+        // Mirrors the Firebase Auth flag so the UI can prompt for confirmation
+        // from the profile alone, before the Auth record is re-read.
+        emailVerified: Boolean(firebaseUser.emailVerified),
+        // Marks the account as one that must confirm its address before it can
+        // sign in. Only set on new sign-ups, so accounts created before this
+        // rule existed are never locked out by it.
+        verificationRequired: true,
         phone: formattedPhone,
         // Digits-only copy so a later "forgot password" lookup by phone number is
         // a single indexed match instead of a scan over formatted variations.
@@ -266,8 +348,30 @@ export const ClientAuthProvider = ({ children }) => {
         createdAt: new Date().toISOString()
       };
       await cloudCreateClientProfile(firebaseUser.uid, profile);
-      completeAuth(profile, true);
-      return { success: true, profile };
+
+      // The confirmation email must be sent while the session created by
+      // createUserWithEmailAndPassword is still open, since Firebase only allows
+      // it for a signed-in user. It is therefore sent before signing out below.
+      let verificationEmailSent = false;
+      try {
+        const sent = await cloudSendEmailVerification(firebaseUser);
+        verificationEmailSent = Boolean(sent && sent.ok && !sent.alreadyVerified);
+      } catch (e) {
+        console.warn("Sign-up verification email warning:", e);
+      }
+
+      // Sign out straight away: the account must not be usable until the address
+      // has been confirmed. The cached session is cleared first, otherwise the
+      // auth state listener would restore the session it just observed.
+      persistSession(null);
+      try {
+        await signOut(auth);
+      } catch (e) {
+        console.warn("Sign-up sign-out warning:", e);
+      }
+      setClientUser(null);
+
+      return { success: true, profile, verificationEmailSent };
     } catch (err) {
       console.warn("Client sign-up warning:", err);
       return { error: mapAuthError(err) };
@@ -347,6 +451,67 @@ export const ClientAuthProvider = ({ children }) => {
     return { success: true };
   };
 
+  /**
+   * Emails the "confirm your address" message. A signed-in client goes through
+   * the Firebase SDK; a client who just signed up has no session (they are
+   * signed out on purpose), so the request goes to a Cloud Function instead.
+   */
+  const sendVerificationEmail = async (targetUser, fallbackEmail) => {
+    if (!isFirebaseConfigured()) return { error: 'client_error_offline' };
+
+    if (targetUser) {
+      const result = await cloudSendEmailVerification(targetUser);
+      if (!result.ok) return { error: mapVerificationError(result.error) };
+      return { success: true, alreadyVerified: result.alreadyVerified };
+    }
+
+    const email = (fallbackEmail || (clientUser && clientUser.email) || '').trim();
+    if (!email) return { error: 'client_error_offline' };
+    const result = await cloudRequestEmailVerification(email);
+    if (!result.ok) return { error: mapVerificationError(result.error) };
+    return { success: true };
+  };
+
+  /**
+   * Handles the link the user just clicked when it is an address verification
+   * link. Firebase marks the address as confirmed; the user stays signed in.
+   */
+  const openVerificationLink = async (oobCode) => {
+    if (!oobCode) return { error: 'client_verify_error_link_invalid' };
+    if (!isFirebaseConfigured()) return { error: 'client_error_offline' };
+
+    const check = await cloudCheckEmailAction(oobCode);
+    if (!check.ok) {
+      clearResetCodeFromUrl();
+      return { error: mapVerificationError(check.error) };
+    }
+
+    if (check.mode !== 'verifyEmail') {
+      // Not a verification link: hand it to the password reset flow instead.
+      clearResetCodeFromUrl();
+      return { error: 'client_verify_error_wrong_link' };
+    }
+
+    const applied = await cloudApplyEmailAction(oobCode);
+    clearResetCodeFromUrl();
+
+    if (!applied.ok) return { error: mapVerificationError(applied.error) };
+
+    // Refresh the cached profile so the UI immediately shows the address as
+    // confirmed without waiting for a full page reload.
+    if (auth?.currentUser) {
+      try {
+        await auth.currentUser.reload();
+        const refreshed = await resolveUserFromAuth(auth.currentUser);
+        if (refreshed) setClientUser(refreshed);
+      } catch (e) {
+        console.warn("Verification profile refresh warning:", e);
+      }
+    }
+
+    return { success: true, email: check.email };
+  };
+
   const signOutClient = async () => {
     if (isFirebaseConfigured() && auth) {
       try {
@@ -401,6 +566,8 @@ export const ClientAuthProvider = ({ children }) => {
         openPasswordResetLink,
         applyNewPassword,
         pendingResetCode,
+        sendVerificationEmail,
+        openVerificationLink,
         openAuth,
         closeAuth,
         requestAuth,

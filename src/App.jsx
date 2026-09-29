@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
-import { ClientAuthProvider, useClientAuth, readResetCodeFromUrl } from './context/ClientAuthContext';
+import { ClientAuthProvider, useClientAuth, readEmailActionFromUrl } from './context/ClientAuthContext';
 import { useAdminSession } from './hooks/useAdminSession';
 import { initDB } from './services/db';
 import { Navbar } from './components/Navbar';
@@ -221,26 +221,48 @@ export const AppContent = () => {
  * never has to look for a form to fill in.
  */
 const PasswordResetLinkHandler = () => {
-  const { openPasswordResetLink, authLoading } = useClientAuth();
+  const { openPasswordResetLink, openVerificationLink } = useClientAuth();
   const { t } = useLanguage();
-  const [resetError, setResetError] = useState('');
+  const [notice, setNotice] = useState(null);
 
   useEffect(() => {
-    const oobCode = readResetCodeFromUrl();
+    const { oobCode, mode } = readEmailActionFromUrl();
     if (!oobCode) return undefined;
+
+    // A verification link is completed silently by Firebase; a password reset
+    // needs the user to type a new password, so it opens the auth modal.
+    if (mode === 'verifyEmail') {
+      let active = true;
+      openVerificationLink(oobCode).then((result) => {
+        if (!active) return;
+        if (result && result.error) {
+          setNotice({ kind: 'error', text: t(result.error) });
+        } else {
+          setNotice({
+            kind: 'success',
+            text: result.email ? t('client_verify_confirmed_named').replace('%s', result.email) : t('client_verify_confirmed')
+          });
+        }
+      });
+      return () => {
+        active = false;
+      };
+    }
 
     let active = true;
     openPasswordResetLink(oobCode).then((result) => {
       if (!active) return;
-      if (result && result.error) setResetError(t(result.error));
+      if (result && result.error) setNotice({ kind: 'error', text: t(result.error) });
     });
 
     return () => {
       active = false;
     };
-  }, [openPasswordResetLink, t]);
+  }, [openPasswordResetLink, openVerificationLink, t]);
 
-  if (!resetError) return null;
+  if (!notice) return null;
+
+  const isError = notice.kind === 'error';
 
   return (
     <div
@@ -250,9 +272,9 @@ const PasswordResetLinkHandler = () => {
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 420,
-        background: 'rgba(239, 68, 68, 0.14)',
-        border: '1px solid rgba(239, 68, 68, 0.45)',
-        color: '#fca5a5',
+        background: isError ? 'rgba(239, 68, 68, 0.14)' : 'rgba(74, 222, 128, 0.14)',
+        border: `1px solid ${isError ? 'rgba(239, 68, 68, 0.45)' : 'rgba(74, 222, 128, 0.45)'}`,
+        color: isError ? '#fca5a5' : '#86efac',
         borderRadius: '12px',
         padding: '12px 18px',
         fontSize: '0.85rem',
@@ -261,7 +283,7 @@ const PasswordResetLinkHandler = () => {
         boxShadow: '0 12px 30px rgba(0,0,0,0.35)'
       }}
     >
-      {resetError}
+      {notice.text}
     </div>
   );
 };

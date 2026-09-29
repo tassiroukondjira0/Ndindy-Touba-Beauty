@@ -24,6 +24,9 @@ import {
   sendPasswordResetEmail,
   verifyPasswordResetCode,
   confirmPasswordReset,
+  sendEmailVerification,
+  checkActionCode,
+  applyActionCode,
   browserLocalPersistence,
   setPersistence,
   onAuthStateChanged
@@ -747,6 +750,71 @@ export const cloudUpdateClientSession = async (uid, session) => {
   }
 };
 
+// --- CLOUD AUTH: EMAIL VERIFICATION ---
+// Unlike the password-reset flow, this one is a native Firebase feature: the
+// user clicks a link in the email and Firebase flips 'emailVerified' on their
+// account. The code is generated, stored and consumed by Firebase Auth, and the
+// user is signed in for the whole process, so nothing is stored by this app.
+
+const VERIFICATION_ERRORS = {
+  'auth/network-request-failed': 'auth/network-request-failed',
+  'auth/too-many-requests': 'auth/too-many-requests',
+  'auth/requires-recent-login': 'auth/requires-recent-login',
+  'auth/user-not-found': 'auth/user-not-found',
+  'auth/invalid-email': 'auth/invalid-email'
+};
+
+/**
+ * Emails the "confirm your address" message to the signed-in user. Firebase
+ * requires an active session, which is why this is only reachable from a client
+ * who just signed in or signed up.
+ */
+export const cloudSendEmailVerification = async (targetUser) => {
+  if (!isFirebaseConfigured() || !auth) return { ok: false, error: 'auth/offline' };
+  // The user passed by the caller wins: right after sign-up the session state
+  // can lag one tick behind, and sending with an explicit record avoids it.
+  const user = targetUser || auth.currentUser;
+  if (!user) return { ok: false, error: 'auth/not-signed-in' };
+  if (user.emailVerified) return { ok: true, alreadyVerified: true };
+  try {
+    await sendEmailVerification(user, {
+      url: RESET_LINK_URL,
+      handleCodeInApp: true
+    });
+    return { ok: true, alreadyVerified: false };
+  } catch (err) {
+    console.warn("Email verification warning:", err);
+    return { ok: false, error: VERIFICATION_ERRORS[err?.code] || 'auth/generic' };
+  }
+};
+
+/**
+ * Inspects the link the user clicked so the UI can explain what it is before
+ * acting on it. Returns the mode: 'verifyEmail', 'resetPassword', …
+ */
+export const cloudCheckEmailAction = async (oobCode) => {
+  if (!isFirebaseConfigured() || !auth) return { ok: false, error: 'auth/offline' };
+  try {
+    const info = await checkActionCode(auth, oobCode);
+    return { ok: true, mode: info?.operation || '', email: info?.data?.email || '' };
+  } catch (err) {
+    console.warn("Email action check warning:", err);
+    return { ok: false, error: err?.code || 'auth/generic' };
+  }
+};
+
+/** Consumes the verification link and marks the address as confirmed. */
+export const cloudApplyEmailAction = async (oobCode) => {
+  if (!isFirebaseConfigured() || !auth) return { ok: false, error: 'auth/offline' };
+  try {
+    await applyActionCode(auth, oobCode);
+    return { ok: true };
+  } catch (err) {
+    console.warn("Email action apply warning:", err);
+    return { ok: false, error: err?.code || 'auth/generic' };
+  }
+};
+
 // --- CLOUD AUTH: PASSWORD RESET ---
 // A client who forgot their password identifies themselves with either the email
 // address or the phone number on the account. Both paths converge on the same
@@ -802,6 +870,33 @@ export const cloudSendPhonePasswordReset = async (phone) => {
     return { ok: false, error: data.reason || 'auth/generic' };
   } catch (err) {
     console.warn("Phone password reset warning:", err);
+    const code = err?.code || '';
+    if (code === 'functions/not-found') return { ok: false, error: 'functions/not-found' };
+    if (code === 'functions/unavailable' || code === 'functions/deadline-exceeded') {
+      return { ok: false, error: 'functions/unavailable' };
+    }
+    return { ok: false, error: RESET_REQUEST_ERRORS[code] || 'auth/generic' };
+  }
+};
+
+/**
+ * Sends a verification link to an address that has not been confirmed yet.
+ *
+ * The browser SDK can only do this from an open session, but a client is signed
+ * out on purpose right after signing up, so the request is delegated to a Cloud
+ * Function. It answers the same way for an unknown address, so it cannot be used
+ * to find out who is a customer of the salon.
+ */
+export const cloudRequestEmailVerification = async (email) => {
+  if (!isFirebaseConfigured() || !functions) return { ok: false, error: 'auth/offline' };
+  try {
+    const send = httpsCallable(functions, 'requestEmailVerification');
+    const result = await send({ email: (email || '').trim().toLowerCase(), continueUrl: RESET_LINK_URL });
+    const data = result?.data || {};
+    if (data.sent) return { ok: true };
+    return { ok: false, error: data.reason || 'auth/generic' };
+  } catch (err) {
+    console.warn("Verification email request warning:", err);
     const code = err?.code || '';
     if (code === 'functions/not-found') return { ok: false, error: 'functions/not-found' };
     if (code === 'functions/unavailable' || code === 'functions/deadline-exceeded') {

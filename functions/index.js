@@ -185,3 +185,63 @@ exports.requestPhonePasswordReset = https.onCall(async (data, context) => {
 
   return { sent: true, maskedEmail: maskEmail(email) };
 });
+
+/**
+ * Client-facing: re-sends a verification link to an address that has not been
+ * confirmed yet.
+ *
+ * The Firebase browser SDK can only send this while a session is open, but a new
+ * client is signed out on purpose as soon as the account is created, so the link
+ * has to be produced server-side with the Admin SDK.
+ *
+ * The response is identical whether the address is known, already confirmed, or
+ * unknown, so this endpoint cannot be used to test whether someone is a customer
+ * of the salon.
+ */
+exports.requestEmailVerification = https.onCall(async (data, context) => {
+  const email = String(data?.email || "").trim().toLowerCase();
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    throw new https.HttpsError("invalid-argument", "invalid_email");
+  }
+
+  // Same throttle as the password reset: per caller IP and per address, so one
+  // browser cannot be used to flood a known mailbox.
+  const callerIp = context?.rawRequest?.ip || "unknown";
+  const throttleId = Buffer.from(`${callerIp}:${email}`).toString("base64url").slice(0, 120);
+  const db = getFirestore();
+  const throttleRef = db.collection("passwordResetThrottle").doc(throttleId);
+  const throttleState = await throttleRef.get();
+  const recent = (throttleState.exists() && throttleState.get("recent")) || [];
+  const now = Date.now();
+  const inWindow = recent.filter((ts) => now - ts < THROTTLE_WINDOW_MS);
+  if (inWindow.length >= THROTTLE_MAX_PER_WINDOW) {
+    throw new https.HttpsError("resource-exhausted", "too_many_requests");
+  }
+  throttleRef.set({ recent: [...inWindow, now] }, { merge: true }).catch((err) => {
+    logger.warn("Verification throttle write failed", err);
+  });
+
+  let user = null;
+  try {
+    user = await getAuth().getUserByEmail(email);
+  } catch (err) {
+    // Unknown address: stay silent, exactly like Firebase does.
+    return { sent: true };
+  }
+
+  if (!user || user.emailVerified) {
+    return { sent: true };
+  }
+
+  try {
+    await getAuth().generateEmailVerificationLink(email, {
+      url: data.continueUrl,
+      handleCodeInApp: true
+    });
+  } catch (err) {
+    logger.error(`Verification email failed for ${maskEmail(email)}`, err);
+    throw new https.HttpsError("internal", "send_failed");
+  }
+
+  return { sent: true };
+});
