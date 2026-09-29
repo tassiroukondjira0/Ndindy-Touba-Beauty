@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useClientAuth } from '../context/ClientAuthContext';
 import { isValidEmail, validateClientPhone } from '../utils/validation';
-import { X, User, Mail, Phone, Lock, LogIn, UserPlus, ShieldCheck } from 'lucide-react';
+import {
+  X, User, Mail, Phone, Lock, LogIn, UserPlus, ShieldCheck,
+  KeyRound, Send, CheckCircle2, ArrowLeft
+} from 'lucide-react';
 
 export const ClientAuthModal = () => {
   const { t } = useLanguage();
@@ -13,6 +16,8 @@ export const ClientAuthModal = () => {
     closeAuth,
     signIn,
     signUp,
+    requestPasswordReset,
+    applyNewPassword,
     authLoading
   } = useClientAuth();
 
@@ -23,11 +28,19 @@ export const ClientAuthModal = () => {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [resetIdentifier, setResetIdentifier] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+  const [resetMaskedEmail, setResetMaskedEmail] = useState('');
+  const [resetDone, setResetDone] = useState(false);
 
   if (!authOpen) return null;
 
+  const isRecovery = authMode === 'forgot' || authMode === 'new-password';
+
   const switchMode = (mode) => {
     setError('');
+    setResetSent(false);
+    setResetDone(false);
     setAuthMode(mode);
   };
 
@@ -72,6 +85,54 @@ export const ClientAuthModal = () => {
         setError(t('client_error_password_mismatch'));
         return;
       }
+    } else if (authMode === 'forgot') {
+      const identifier = resetIdentifier.trim();
+      if (!identifier) {
+        setError(t('client_reset_error_identifier_required'));
+        return;
+      }
+      if (identifier.includes('@') && !isValidEmail(identifier)) {
+        setError(t('client_error_email_invalid'));
+        return;
+      }
+      if (!identifier.includes('@') && !validateClientPhone(identifier).isValid) {
+        setError(t('client_reset_error_phone_invalid'));
+        return;
+      }
+
+      setSubmitting(true);
+      const result = await requestPasswordReset(identifier);
+      setSubmitting(false);
+
+      if (result && result.error) {
+        setError(t(result.error));
+        return;
+      }
+      setResetMaskedEmail(result.maskedEmail || '');
+      setResetSent(true);
+      return;
+    } else if (authMode === 'new-password') {
+      if (!password || password.length < 8) {
+        setError(t('client_error_password_short'));
+        return;
+      }
+      if (password !== confirm) {
+        setError(t('client_error_password_mismatch'));
+        return;
+      }
+
+      setSubmitting(true);
+      const result = await applyNewPassword(password);
+      setSubmitting(false);
+
+      if (result && result.error) {
+        setError(t(result.error));
+        return;
+      }
+      setPassword('');
+      setConfirm('');
+      setResetDone(true);
+      return;
     } else {
       if (!isValidEmail(email)) {
         setError(t('client_error_email_invalid'));
@@ -185,71 +246,74 @@ export const ClientAuthModal = () => {
               margin: '0 auto 14px'
             }}
           >
-            <ShieldCheck size={28} />
+            {isRecovery ? <KeyRound size={28} /> : <ShieldCheck size={28} />}
           </div>
           <h2 className="font-serif text-gold" style={{ fontSize: '1.7rem', fontWeight: 700, marginBottom: '6px' }}>
-            {t('client_auth_title')}
+            {isRecovery ? t('client_reset_title') : t('client_auth_title')}
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.6 }}>
-            {t('client_auth_subtitle')}
+            {isRecovery ? t('client_reset_subtitle') : t('client_auth_subtitle')}
           </p>
         </div>
 
-        {/* Tabs */}
-        <div
-          style={{
-            display: 'flex',
-            backgroundColor: 'rgba(255, 255, 255, 0.04)',
-            borderRadius: '12px',
-            padding: '4px',
-            marginBottom: '22px'
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => switchMode('login')}
+        {/* Tabs, hidden during password recovery so the recovery steps read as
+            a separate journey from sign in / sign up. */}
+        {!isRecovery && (
+          <div
             style={{
-              flex: 1,
-              padding: '10px',
-              borderRadius: '9px',
-              backgroundColor: authMode === 'login' ? 'var(--gold-primary)' : 'transparent',
-              color: authMode === 'login' ? '#000' : 'var(--text-muted)',
-              border: 'none',
-              fontWeight: 700,
-              fontSize: '0.88rem',
-              cursor: 'pointer',
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '7px'
+              backgroundColor: 'rgba(255, 255, 255, 0.04)',
+              borderRadius: '12px',
+              padding: '4px',
+              marginBottom: '22px'
             }}
           >
-            <LogIn size={15} />
-            <span>{t('client_tab_login')}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => switchMode('register')}
-            style={{
-              flex: 1,
-              padding: '10px',
-              borderRadius: '9px',
-              backgroundColor: authMode === 'register' ? 'var(--gold-primary)' : 'transparent',
-              color: authMode === 'register' ? '#000' : 'var(--text-muted)',
-              border: 'none',
-              fontWeight: 700,
-              fontSize: '0.88rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '7px'
-            }}
-          >
-            <UserPlus size={15} />
-            <span>{t('client_tab_register')}</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => switchMode('login')}
+              style={{
+                flex: 1,
+                padding: '10px',
+                borderRadius: '9px',
+                backgroundColor: authMode === 'login' ? 'var(--gold-primary)' : 'transparent',
+                color: authMode === 'login' ? '#000' : 'var(--text-muted)',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '0.88rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '7px'
+              }}
+            >
+              <LogIn size={15} />
+              <span>{t('client_tab_login')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode('register')}
+              style={{
+                flex: 1,
+                padding: '10px',
+                borderRadius: '9px',
+                backgroundColor: authMode === 'register' ? 'var(--gold-primary)' : 'transparent',
+                color: authMode === 'register' ? '#000' : 'var(--text-muted)',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '0.88rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '7px'
+              }}
+            >
+              <UserPlus size={15} />
+              <span>{t('client_tab_register')}</span>
+            </button>
+          </div>
+        )}
 
         {authLoading ? (
           <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
@@ -259,7 +323,120 @@ export const ClientAuthModal = () => {
           </div>
         ) : (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {authMode === 'register' && (
+            {authMode === 'forgot' && !resetSent && (
+              <>
+                <div>
+                  <label style={labelStyle}>✉️ {t('client_reset_field_identifier')}</label>
+                  <div style={{ position: 'relative' }}>
+                    <Mail size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                    <input
+                      type="text"
+                      value={resetIdentifier}
+                      onChange={e => setResetIdentifier(e.target.value)}
+                      placeholder="client@gmail.com / 443-858-1400"
+                      style={inputStyle}
+                      autoComplete="username"
+                      required
+                    />
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.5 }}>
+                    {t('client_reset_field_hint')}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {authMode === 'forgot' && resetSent && (
+              <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                <div
+                  style={{
+                    width: '54px',
+                    height: '54px',
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(74, 222, 128, 0.15)',
+                    border: '1px solid rgba(74, 222, 128, 0.4)',
+                    color: '#4ade80',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 14px'
+                  }}
+                >
+                  <CheckCircle2 size={26} />
+                </div>
+                <p style={{ color: 'var(--text-main)', fontSize: '0.92rem', lineHeight: 1.6, marginBottom: '6px' }}>
+                  {t('client_reset_sent')}
+                </p>
+                {resetMaskedEmail && (
+                  <p style={{ color: 'var(--gold-light)', fontSize: '0.88rem', fontWeight: 700, marginBottom: '10px' }}>
+                    {resetMaskedEmail}
+                  </p>
+                )}
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1.6 }}>
+                  {t('client_reset_sent_hint')}
+                </p>
+              </div>
+            )}
+
+            {authMode === 'new-password' && !resetDone && (
+              <>
+                <div>
+                  <label style={labelStyle}>🔒 {t('client_reset_field_new_password')}</label>
+                  <div style={{ position: 'relative' }}>
+                    <Lock size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      style={inputStyle}
+                      autoComplete="new-password"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={labelStyle}>🔒 {t('client_field_confirm')}</label>
+                  <div style={{ position: 'relative' }}>
+                    <Lock size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                    <input
+                      type="password"
+                      value={confirm}
+                      onChange={e => setConfirm(e.target.value)}
+                      style={inputStyle}
+                      autoComplete="new-password"
+                      required
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {authMode === 'new-password' && resetDone && (
+              <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                <div
+                  style={{
+                    width: '54px',
+                    height: '54px',
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(74, 222, 128, 0.15)',
+                    border: '1px solid rgba(74, 222, 128, 0.4)',
+                    color: '#4ade80',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 14px'
+                  }}
+                >
+                  <CheckCircle2 size={26} />
+                </div>
+                <p style={{ color: 'var(--text-main)', fontSize: '0.92rem', lineHeight: 1.6 }}>
+                  {t('client_reset_done')}
+                </p>
+              </div>
+            )}
+
+            {!isRecovery && authMode === 'register' && (
               <div>
                 <label style={labelStyle}>👤 {t('client_field_name')}</label>
                 <div style={{ position: 'relative' }}>
@@ -275,22 +452,24 @@ export const ClientAuthModal = () => {
               </div>
             )}
 
-            <div>
-              <label style={labelStyle}>✉️ {t('client_field_email')}</label>
-              <div style={{ position: 'relative' }}>
-                <Mail size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="Ex: client@gmail.com"
-                  style={inputStyle}
-                  required
-                />
+            {!isRecovery && (
+              <div>
+                <label style={labelStyle}>✉️ {t('client_field_email')}</label>
+                <div style={{ position: 'relative' }}>
+                  <Mail size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="Ex: client@gmail.com"
+                    style={inputStyle}
+                    required
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            {authMode === 'register' && (
+            {!isRecovery && authMode === 'register' && (
               <div>
                 <label style={labelStyle}>📞 {t('client_field_phone')}</label>
                 <div style={{ position: 'relative' }}>
@@ -310,22 +489,24 @@ export const ClientAuthModal = () => {
               </div>
             )}
 
-            <div>
-              <label style={labelStyle}>🔒 {t('client_field_password')}</label>
-              <div style={{ position: 'relative' }}>
-                <Lock size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  style={inputStyle}
-                  autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                  required
-                />
+            {!isRecovery && (
+              <div>
+                <label style={labelStyle}>🔒 {t('client_field_password')}</label>
+                <div style={{ position: 'relative' }}>
+                  <Lock size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    style={inputStyle}
+                    autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                    required
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            {authMode === 'register' && (
+            {!isRecovery && authMode === 'register' && (
               <div>
                 <label style={labelStyle}>🔒 {t('client_field_confirm')}</label>
                 <div style={{ position: 'relative' }}>
@@ -358,43 +539,123 @@ export const ClientAuthModal = () => {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="bg-gold-gradient"
-              style={{
-                width: '100%',
-                padding: '14px',
-                borderRadius: '30px',
-                fontSize: '0.95rem',
-                cursor: 'pointer',
-                opacity: submitting ? 0.6 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px'
-              }}
-            >
-              {submitting ? '...' : authMode === 'login' ? t('client_btn_login') : t('client_btn_register')}
-            </button>
+            {!(authMode === 'forgot' && resetSent) && !(authMode === 'new-password' && resetDone) && (
+              <button
+                type="submit"
+                disabled={submitting}
+                className="bg-gold-gradient"
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  borderRadius: '30px',
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                  opacity: submitting ? 0.6 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                {submitting
+                  ? '...'
+                  : authMode === 'forgot'
+                    ? <><Send size={16} />{t('client_reset_btn_send')}</>
+                    : authMode === 'new-password'
+                      ? <><KeyRound size={16} />{t('client_reset_btn_save')}</>
+                      : authMode === 'login'
+                        ? t('client_btn_login')
+                        : t('client_btn_register')}
+              </button>
+            )}
 
-            <div style={{ textAlign: 'center', fontSize: '0.87rem', color: 'var(--text-muted)' }}>
-              {authMode === 'login' ? (
-                <>
-                  {t('client_no_account')}{' '}
-                  <button type="button" onClick={() => switchMode('register')} style={{ background: 'none', border: 'none', color: 'var(--gold-light)', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>
-                    {t('client_tab_register')}
-                  </button>
-                </>
-              ) : (
-                <>
-                  {t('client_has_account')}{' '}
-                  <button type="button" onClick={() => switchMode('login')} style={{ background: 'none', border: 'none', color: 'var(--gold-light)', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>
-                    {t('client_tab_login')}
-                  </button>
-                </>
-              )}
-            </div>
+            {/* Recovery screens always offer a way back to sign in. */}
+            {isRecovery && (
+              <div style={{ textAlign: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => switchMode('login')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--gold-light)',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    fontSize: '0.87rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <ArrowLeft size={15} />
+                  {t('client_reset_back_to_login')}
+                </button>
+              </div>
+            )}
+
+            {authMode === 'forgot' && resetSent && (
+              <div style={{ textAlign: 'center', fontSize: '0.85rem' }}>
+                <button
+                  type="button"
+                  onClick={() => { setResetSent(false); setError(''); }}
+                  style={{ background: 'none', border: 'none', color: 'var(--gold-light)', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', fontSize: '0.85rem' }}
+                >
+                  {t('client_reset_resend')}
+                </button>
+              </div>
+            )}
+
+            {authMode === 'new-password' && resetDone && (
+              <button
+                type="button"
+                onClick={() => switchMode('login')}
+                className="bg-gold-gradient"
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  borderRadius: '30px',
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                {t('client_btn_login')}
+              </button>
+            )}
+
+            {!isRecovery && (
+              <div style={{ textAlign: 'center', fontSize: '0.87rem', color: 'var(--text-muted)' }}>
+                {authMode === 'login' ? (
+                  <>
+                    {t('client_no_account')}{' '}
+                    <button type="button" onClick={() => switchMode('register')} style={{ background: 'none', border: 'none', color: 'var(--gold-light)', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>
+                      {t('client_tab_register')}
+                    </button>
+                    <div style={{ marginTop: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={() => switchMode('forgot')}
+                        style={{ background: 'none', border: 'none', color: 'var(--gold-light)', cursor: 'pointer', fontSize: '0.83rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <KeyRound size={14} />
+                        {t('client_forgot_link')}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {t('client_has_account')}{' '}
+                    <button type="button" onClick={() => switchMode('login')} style={{ background: 'none', border: 'none', color: 'var(--gold-light)', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>
+                      {t('client_tab_login')}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </form>
         )}
       </div>

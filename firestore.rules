@@ -37,5 +37,11 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == uid;
     }
+    // Password-reset throttling is written and read exclusively by the
+    // 'requestPhonePasswordReset' Cloud Function through the Admin SDK, which
+    // bypasses these rules. No browser access is needed or granted.
+    match /passwordResetThrottle/{docId} {
+      allow read, write: if false;
+    }
   }
 }

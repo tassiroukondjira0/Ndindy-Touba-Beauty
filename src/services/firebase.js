@@ -21,10 +21,14 @@ import {
   signInWithEmailAndPassword,
   signOut,
   updatePassword,
+  sendPasswordResetEmail,
+  verifyPasswordResetCode,
+  confirmPasswordReset,
   browserLocalPersistence,
   setPersistence,
   onAuthStateChanged
 } from 'firebase/auth';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
@@ -48,6 +52,7 @@ let app = null;
 let db = null;
 let auth = null;
 let storage = null;
+let functions = null;
 export let authPersistenceReady = Promise.resolve();
 
 if (isFirebaseConfigured()) {
@@ -60,6 +65,7 @@ if (isFirebaseConfigured()) {
       return false;
     });
     storage = getStorage(app);
+    functions = getFunctions(app);
     console.log("🔥 Firebase Cloud Database & Auth Initialized Successfully!");
   } catch (err) {
     console.warn("⚠️ Firebase Initialization Warning:", err.message);
@@ -67,6 +73,10 @@ if (isFirebaseConfigured()) {
 }
 
 export { db, auth };
+
+// The password-reset link emailed by Firebase must land back on this app so the
+// user can choose a new password here instead of on Firebase's own hosted page.
+const RESET_LINK_URL = typeof window !== 'undefined' ? `${window.location.origin}/` : undefined;
 
 // --- CLOUD FIRESTORE HELPERS: RESERVATIONS ---
 
@@ -734,6 +744,100 @@ export const cloudUpdateClientSession = async (uid, session) => {
   } catch (err) {
     console.warn("Error syncing client session:", err);
     return false;
+  }
+};
+
+// --- CLOUD AUTH: PASSWORD RESET ---
+// A client who forgot their password identifies themselves with either the email
+// address or the phone number on the account. Both paths converge on the same
+// delivery: Firebase emails a single-use reset link to the address registered on
+// the account, and the user sets a new password from that link. The token is
+// generated, stored, expired and consumed entirely by Firebase Auth, so no reset
+// secret is ever created or stored by this app.
+
+const RESET_REQUEST_ERRORS = {
+  'auth/missing-email': 'auth/missing-email',
+  'auth/invalid-email': 'auth/invalid-email',
+  'auth/network-request-failed': 'auth/network-request-failed',
+  'auth/too-many-requests': 'auth/too-many-requests',
+  'functions/unavailable': 'functions/unavailable',
+  'functions/internal': 'functions/internal',
+  'functions/function-not-found': 'functions/function-not-found'
+};
+
+/**
+ * Sends the reset link when the client typed their email address.
+ * Firebase answers with a generic success even for unknown addresses, which is
+ * what we want: the caller must never learn whether an account exists.
+ */
+export const cloudSendEmailPasswordReset = async (email) => {
+  if (!isFirebaseConfigured() || !auth) return { ok: false, error: 'auth/offline' };
+  try {
+    await sendPasswordResetEmail(auth, (email || '').trim().toLowerCase(), {
+      url: RESET_LINK_URL,
+      handleCodeInApp: true
+    });
+    return { ok: true };
+  } catch (err) {
+    console.warn("Password reset email warning:", err);
+    return { ok: false, error: RESET_REQUEST_ERRORS[err?.code] || 'auth/generic' };
+  }
+};
+
+/**
+ * Sends the reset link when the client typed their phone number.
+ * Resolving a phone number to an account is delegated to a Cloud Function: the
+ * 'clientProfiles' collection is not publicly readable, and even if it were, the
+ * full email address must never be handed back to an anonymous visitor. The
+ * function resolves the account and sends the email itself, then returns only a
+ * masked address (e.g. "a***@gmail.com") so the user knows where to look.
+ */
+export const cloudSendPhonePasswordReset = async (phone) => {
+  if (!isFirebaseConfigured() || !functions) return { ok: false, error: 'auth/offline' };
+  try {
+    const send = httpsCallable(functions, 'requestPhonePasswordReset');
+    const result = await send({ phone: (phone || '').trim(), continueUrl: RESET_LINK_URL });
+    const data = result?.data || {};
+    if (data.sent) return { ok: true, maskedEmail: data.maskedEmail || '' };
+    return { ok: false, error: data.reason || 'auth/generic' };
+  } catch (err) {
+    console.warn("Phone password reset warning:", err);
+    const code = err?.code || '';
+    if (code === 'functions/not-found') return { ok: false, error: 'functions/not-found' };
+    if (code === 'functions/unavailable' || code === 'functions/deadline-exceeded') {
+      return { ok: false, error: 'functions/unavailable' };
+    }
+    return { ok: false, error: RESET_REQUEST_ERRORS[code] || 'auth/generic' };
+  }
+};
+
+/**
+ * Checks the one-time code carried by the emailed link is still valid.
+ * Called on page load so an expired or already-used link shows a clear message
+ * instead of a form that can never succeed.
+ */
+export const cloudVerifyPasswordResetCode = async (oobCode) => {
+  if (!isFirebaseConfigured() || !auth) return { ok: false, error: 'auth/offline' };
+  try {
+    const email = await verifyPasswordResetCode(auth, oobCode);
+    return { ok: true, email: email || '' };
+  } catch (err) {
+    console.warn("Password reset code verification warning:", err);
+    return { ok: false, error: err?.code || 'auth/generic' };
+  }
+};
+
+/** Consumes the one-time code and stores the new password. */
+export const cloudConfirmPasswordReset = async (oobCode, newPassword) => {
+  if (!isFirebaseConfigured() || !auth) return { ok: false, error: 'auth/offline' };
+  try {
+    await confirmPasswordReset(auth, oobCode, newPassword);
+    return { ok: true };
+  } catch (err) {
+    console.warn("Password reset confirmation warning:", err);
+    const code = err?.code || '';
+    const mapped = code === 'auth/invalid-verification-code' ? 'auth/expired-action-code' : code;
+    return { ok: false, error: mapped || 'auth/generic' };
   }
 };
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { LanguageProvider } from './context/LanguageContext';
-import { ClientAuthProvider } from './context/ClientAuthContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import { ClientAuthProvider, useClientAuth, readResetCodeFromUrl } from './context/ClientAuthContext';
 import { useAdminSession } from './hooks/useAdminSession';
 import { initDB } from './services/db';
 import { Navbar } from './components/Navbar';
@@ -214,12 +214,65 @@ export const AppContent = () => {
   );
 };
 
+/**
+ * Watches for the link Firebase emails after a password reset request. When the
+ * page is opened with that link, the one-time code is validated straight away
+ * and the auth modal opens on the "choose a new password" step, so the user
+ * never has to look for a form to fill in.
+ */
+const PasswordResetLinkHandler = () => {
+  const { openPasswordResetLink, authLoading } = useClientAuth();
+  const { t } = useLanguage();
+  const [resetError, setResetError] = useState('');
+
+  useEffect(() => {
+    const oobCode = readResetCodeFromUrl();
+    if (!oobCode) return undefined;
+
+    let active = true;
+    openPasswordResetLink(oobCode).then((result) => {
+      if (!active) return;
+      if (result && result.error) setResetError(t(result.error));
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [openPasswordResetLink, t]);
+
+  if (!resetError) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: '24px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 420,
+        background: 'rgba(239, 68, 68, 0.14)',
+        border: '1px solid rgba(239, 68, 68, 0.45)',
+        color: '#fca5a5',
+        borderRadius: '12px',
+        padding: '12px 18px',
+        fontSize: '0.85rem',
+        fontWeight: 600,
+        backdropFilter: 'blur(8px)',
+        boxShadow: '0 12px 30px rgba(0,0,0,0.35)'
+      }}
+    >
+      {resetError}
+    </div>
+  );
+};
+
 export function App() {
   return (
     <LanguageProvider>
       <ClientAuthProvider>
         <AppContent />
         <ClientAuthModal />
+        <PasswordResetLinkHandler />
       </ClientAuthProvider>
     </LanguageProvider>
   );
